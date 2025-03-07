@@ -1,5 +1,5 @@
 import axios from "axios";
-import { createContext, useState } from "react";
+import { createContext, useState, useEffect } from "react";
 import { toast } from "react-toastify";
 
 
@@ -8,8 +8,13 @@ export const AdminContext = createContext()
 const AdminContextProvider = (props) => {
 
     const backendUrl = import.meta.env.VITE_BACKEND_URL
+    console.log('AdminContext initialized with backend URL:', backendUrl);
 
     const [aToken, setAToken] = useState(localStorage.getItem('aToken') ? localStorage.getItem('aToken') : '')
+    
+    useEffect(() => {
+        console.log('Admin token in context:', aToken ? 'Token exists' : 'No token');
+    }, [aToken]);
 
     const [appointments, setAppointments] = useState([])
     const [doctors, setDoctors] = useState([])
