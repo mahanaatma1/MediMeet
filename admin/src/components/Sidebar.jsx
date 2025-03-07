@@ -3,6 +3,7 @@ import { assets } from '../assets/assets'
 import { NavLink } from 'react-router-dom'
 import { DoctorContext } from '../context/DoctorContext'
 import { AdminContext } from '../context/AdminContext'
+import { FaBriefcase } from 'react-icons/fa'
 
 const Sidebar = () => {
 
@@ -28,6 +29,10 @@ const Sidebar = () => {
         <NavLink to={'/doctor-list'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
           <img className='min-w-5' src={assets.people_icon} alt='' />
           <p className='hidden md:block'>Doctors List</p>
+        </NavLink>
+        <NavLink to={'/job-management'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <FaBriefcase className='min-w-5' />
+          <p className='hidden md:block'>Job Management</p>
         </NavLink>
       </ul>}
 

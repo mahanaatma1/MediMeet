@@ -1,4 +1,5 @@
 import { assets } from '../assets/assets'
+import { Link } from 'react-router-dom'
 
 const Contact = () => {
   return (
@@ -16,7 +17,9 @@ const Contact = () => {
           <p className=' text-gray-500'>Tel: +91-7549334598 <br /> Email: medimeet.in@gmail.com</p>
           <p className=' font-semibold text-lg text-gray-600'>CAREERS AT MediMeet</p>
           <p className=' text-gray-500'>Learn more about our teams and job openings.</p>
-          <button className='border border-black px-8 py-4 text-sm hover:bg-black hover:text-white transition-all duration-500'>Explore Jobs</button>
+          <Link to="/careers">
+            <button className='border border-black px-8 py-4 text-sm hover:bg-black hover:text-white transition-all duration-500'>Explore Jobs</button>
+          </Link>
         </div>
       </div>
 
