@@ -5,12 +5,10 @@ set -o errexit
 npm install
 npm run build
 
-# Copy the redirect files to the dist folder
-cp ./public/_redirects ./dist/
-cp ./netlify.toml ./dist/
-
-# Create a web server configuration file
+# Create all the necessary files for SPA routing
 echo '/* /index.html 200' > ./dist/_redirects
+cp ./public/404.html ./dist/
+cp ./netlify.toml ./dist/
 
 # Create a Render-specific routing file
 cat > ./dist/render-routes.json << EOL
@@ -19,4 +17,21 @@ cat > ./dist/render-routes.json << EOL
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
-EOL 
+EOL
+
+# Create a special file for Render that will be used for all routes
+cat > ./dist/200.html << EOL
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0;url=/">
+</head>
+<body>
+  Redirecting...
+</body>
+</html>
+EOL
+
+# Copy index.html to 404.html for Render
+cp ./dist/index.html ./dist/404.html 
