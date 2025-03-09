@@ -18,26 +18,17 @@ const Login = () => {
 
   const onSubmitHandler = async (event) => {
     event.preventDefault();
-    console.log('Login attempt as:', state);
-    console.log('Backend URL:', backendUrl);
 
     if (state === 'Admin') {
-      try {
-        console.log('Attempting admin login with:', { email, password });
-        const { data } = await axios.post(backendUrl + '/api/admin/login', { email, password });
-        console.log('Admin login response:', data);
-        
-        if (data.success) {
-          setAToken(data.token);
-          localStorage.setItem('aToken', data.token);
-          console.log('Admin login successful, token stored');
-        } else {
-          toast.error(data.message);
-        }
-      } catch (error) {
-        console.error('Admin login error:', error);
-        toast.error('Login failed: ' + (error.response?.data?.message || error.message));
+
+      const { data } = await axios.post(backendUrl + '/api/admin/login', { email, password })
+      if (data.success) {
+        setAToken(data.token)
+        localStorage.setItem('aToken', data.token)
+      } else {
+        toast.error(data.message)
       }
+
     } else {
 
       const { data } = await axios.post(backendUrl + '/api/doctor/login', { email, password })

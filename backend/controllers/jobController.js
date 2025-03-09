@@ -3,13 +3,10 @@ import Job from '../models/jobModel.js';
 // Add a new job
 export const addJob = async (req, res) => {
   try {
-    console.log('addJob controller called');
     const { title, department, location, description, requirements, contactEmail, contactPhone } = req.body;
-    console.log('Job data received:', req.body);
 
     // Validate required fields
     if (!title || !department || !location || !description || !requirements || !contactEmail || !contactPhone) {
-      console.log('Validation failed: Missing required fields');
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -26,7 +23,6 @@ export const addJob = async (req, res) => {
 
     // Save job to database
     await newJob.save();
-    console.log('Job saved successfully:', newJob);
 
     res.status(201).json({ 
       message: "Job added successfully", 
@@ -41,9 +37,7 @@ export const addJob = async (req, res) => {
 // Get all jobs
 export const getAllJobs = async (req, res) => {
   try {
-    console.log('getAllJobs controller called');
     const jobs = await Job.find().sort({ createdAt: -1 });
-    console.log(`Found ${jobs.length} jobs`);
     res.status(200).json({ jobs });
   } catch (error) {
     console.error("Error getting jobs:", error);
@@ -54,9 +48,7 @@ export const getAllJobs = async (req, res) => {
 // Get active jobs (for public careers page)
 export const getActiveJobs = async (req, res) => {
   try {
-    console.log('getActiveJobs controller called');
     const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
-    console.log(`Found ${jobs.length} active jobs`);
     res.status(200).json({ jobs });
   } catch (error) {
     console.error("Error getting active jobs:", error);

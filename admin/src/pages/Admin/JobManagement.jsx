@@ -27,21 +27,15 @@ const JobManagement = () => {
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      console.log('Fetching jobs with token:', aToken);
-      console.log('Backend URL:', import.meta.env.VITE_BACKEND_URL);
-      
       const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/admin/jobs`, {
         headers: {
           atoken: aToken
         }
       });
-      
-      console.log('Jobs API response:', response.data);
       setJobs(response.data.jobs);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching jobs:', error);
-      console.error('Error details:', error.response ? error.response.data : 'No response data');
       toast.error('Failed to fetch jobs');
       setLoading(false);
     }
@@ -49,10 +43,7 @@ const JobManagement = () => {
 
   useEffect(() => {
     if (aToken) {
-      console.log('Admin token is available, fetching jobs');
       fetchJobs();
-    } else {
-      console.log('No admin token available');
     }
   }, [aToken]);
 
