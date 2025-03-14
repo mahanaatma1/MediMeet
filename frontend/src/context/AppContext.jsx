@@ -1,17 +1,20 @@
-import { createContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from "react-toastify";
 import axios from 'axios'
 
-export const AppContext = createContext()
+// Export the context directly so it can be used with useContext
+export const AppContext = createContext();
 
-const AppContextProvider = (props) => {
+// Custom hook to use the context
+export const useAppContext = () => useContext(AppContext);
 
+export const AppProvider = ({ children }) => {
     const currencySymbol = '₹'
     const backendUrl = import.meta.env.VITE_BACKEND_URL
 
     const [doctors, setDoctors] = useState([])
-    const [token, setToken] = useState(localStorage.getItem('token') ? localStorage.getItem('token') : '')
-    const [userData, setUserData] = useState(false)
+    const [token, setToken] = useState(localStorage.getItem('token') || null);
+    const [user, setUser] = useState(null);
 
     // Getting Doctors using API
     const getDoctosData = async () => {
@@ -37,10 +40,12 @@ const AppContextProvider = (props) => {
 
         try {
 
-            const { data } = await axios.get(backendUrl + '/api/user/get-profile', { headers: { token } })
+            const { data } = await axios.get(backendUrl + '/api/user/get-profile', { 
+                headers: { token } 
+            })
 
             if (data.success) {
-                setUserData(data.userData)
+                setUser(data.userData)
             } else {
                 toast.error(data.message)
             }
@@ -67,15 +72,16 @@ const AppContextProvider = (props) => {
         currencySymbol,
         backendUrl,
         token, setToken,
-        userData, setUserData, loadUserProfileData
+        user, setUser,
+        loadUserProfileData
     }
 
     return (
         <AppContext.Provider value={value}>
-            {props.children}
+            {children}
         </AppContext.Provider>
     )
 
 }
 
-export default AppContextProvider
+export default AppProvider

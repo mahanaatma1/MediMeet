@@ -38,6 +38,26 @@ const jobSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  employmentType: {
+    type: String,
+    enum: ['Full-time', 'Part-time', 'Contract', 'Temporary', 'Internship', 'Volunteer'],
+    default: 'Full-time'
+  },
+  salaryMin: {
+    type: Number,
+    min: 0
+  },
+  salaryMax: {
+    type: Number,
+    min: 0
+  },
+  applicationDeadline: {
+    type: Date
+  },
+  postedDate: {
+    type: Date,
+    default: Date.now
+  },
   createdAt: {
     type: Date,
     default: Date.now

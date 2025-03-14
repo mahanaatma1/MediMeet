@@ -11,14 +11,17 @@ import MyProfile from './pages/MyProfile'
 import Footer from './components/Footer'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { Toaster } from 'react-hot-toast';
 import Verify from './pages/Verify'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import Careers from './pages/Careers'
+import MyApplications from './components/MyApplications'
 
 const App = () => {
   return (
     <div className='mx-4 sm:mx-[10%]'>
       <ToastContainer />
+      <Toaster position="top-center" />
       <Navbar />
       <Routes>
         <Route path='/' element={<Home />} />
@@ -33,6 +36,7 @@ const App = () => {
         <Route path='/verify' element={<Verify />} />
         <Route path='/privacy-policy' element={<PrivacyPolicy />} />
         <Route path='/careers' element={<Careers />} />
+        <Route path='/my-applications' element={<MyApplications />} />
       </Routes>
       <Footer />
     </div>

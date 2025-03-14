@@ -7,6 +7,8 @@ import appointmentModel from "../models/appointmentModel.js";
 import { v2 as cloudinary } from 'cloudinary'
 import stripe from "stripe";
 import razorpay from 'razorpay';
+import Job from '../models/jobModel.js';
+import jobApplicationModel from '../models/jobApplicationModel.js';
 
 // Gateway Initialize
 const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY)
@@ -345,6 +347,116 @@ const verifyStripe = async (req, res) => {
     }
 };
 
+// Get active jobs for users
+const getActiveJobs = async (req, res) => {
+  try {
+    const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, jobs });
+  } catch (error) {
+    console.error("Error getting active jobs:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// Check if user has already applied for a job
+const checkJobApplication = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { userId } = req.body;
+
+    const existingApplication = await jobApplicationModel.findOne({ userId, jobId });
+    
+    if (existingApplication) {
+      return res.json({ 
+        success: true, 
+        hasApplied: true,
+        message: "You have already applied for this position"
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      hasApplied: false,
+      message: "You can apply for this position"
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Submit a job application
+const submitJobApplication = async (req, res) => {
+  try {
+    // The userId should come from the auth middleware, but we'll also check the form data as a fallback
+    // This ensures we're using the authenticated user's ID for security
+    const userId = req.body.userId; // This comes from the authUser middleware
+    const { jobId, fullName, email, phone, address, experience, education, coverLetter } = req.body;
+    const resumeFile = req.file;
+
+    // Validate required fields
+    if (!userId || !fullName || !email || !phone || !address || !experience || !education || !resumeFile) {
+      return res.status(400).json({ success: false, message: "All fields are required" });
+    }
+
+    // Ensure jobId is available
+    const actualJobId = jobId || req.params.jobId;
+    if (!actualJobId) {
+      return res.status(400).json({ success: false, message: "Job ID is required" });
+    }
+
+    // Check if user has already applied
+    const existingApplication = await jobApplicationModel.findOne({ userId, jobId: actualJobId });
+    if (existingApplication) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "You have already applied for this position" 
+      });
+    }
+
+    // Save resume file locally
+    const resumeUrl = `/uploads/${resumeFile.filename}`;
+
+    // Create new application
+    const application = new jobApplicationModel({
+      userId,
+      jobId: actualJobId,
+      fullName,
+      email,
+      phone,
+      address,
+      experience,
+      education,
+      resumeUrl,
+      coverLetter: coverLetter || ""
+    });
+
+    await application.save();
+    res.status(201).json({ 
+      success: true, 
+      message: "Application submitted successfully" 
+    });
+  } catch (error) {
+    console.error("Job application error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Get user's job applications
+const getUserApplications = async (req, res) => {
+  try {
+    const { userId } = req.body;
+    
+    const applications = await jobApplicationModel
+      .find({ userId })
+      .populate('jobId')
+      .sort({ appliedAt: -1 });
+
+    res.json({ success: true, applications });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export {
     loginUser,
     registerUser,
@@ -356,5 +468,9 @@ export {
     paymentRazorpay,
     verifyRazorpay,
     paymentStripe,
-    verifyStripe
+    verifyStripe,
+    getActiveJobs,
+    checkJobApplication,
+    submitJobApplication,
+    getUserApplications
 }

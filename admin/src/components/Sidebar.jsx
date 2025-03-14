@@ -1,14 +1,19 @@
 import React, { useContext } from 'react'
 import { assets } from '../assets/assets'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { DoctorContext } from '../context/DoctorContext'
 import { AdminContext } from '../context/AdminContext'
-import { FaBriefcase } from 'react-icons/fa'
+import { FaBriefcase, FaFileAlt, FaSignOutAlt } from 'react-icons/fa'
 
 const Sidebar = () => {
-
+  const navigate = useNavigate();
   const { dToken } = useContext(DoctorContext)
-  const { aToken } = useContext(AdminContext)
+  const { aToken, logout } = useContext(AdminContext)
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  }
 
   return (
     <div className='min-h-screen bg-white border-r'>
@@ -34,6 +39,12 @@ const Sidebar = () => {
           <FaBriefcase className='min-w-5' />
           <p className='hidden md:block'>Job Management</p>
         </NavLink>
+        <NavLink to={'/job-applications'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <FaFileAlt className='min-w-5' />
+          <p className='hidden md:block'>Job Applications</p>
+        </NavLink>
+        
+        
       </ul>}
 
       {dToken && <ul className='text-[#515151] mt-5'>
