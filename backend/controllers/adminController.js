@@ -32,20 +32,37 @@ const loginAdmin = async (req, res) => {
 // API for admin to get all appointments
 const appointmentsAdmin = async (req, res) => {
     try {
-        const appointments = await appointmentModel.find()
-        res.json({ success: true, appointments })
+        console.log("Admin requesting appointments");
+        const appointments = await appointmentModel.find();
+        
+        // Ensure all appointments have the required fields
+        const validatedAppointments = appointments.map(appointment => {
+            const appointmentObj = appointment.toObject();
+            
+            // Ensure userData and docData exist
+            if (!appointmentObj.userData) appointmentObj.userData = {};
+            if (!appointmentObj.docData) appointmentObj.docData = {};
+            
+            return appointmentObj;
+        });
+        
+        console.log(`Found ${validatedAppointments.length} appointments`);
+        res.json({ success: true, appointments: validatedAppointments });
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.log("Error in appointmentsAdmin:", error);
+        res.json({ success: false, message: error.message });
     }
 }
 
 // API for admin to cancel appointment
 const appointmentCancel = async (req, res) => {
     try {
-        const { id } = req.body
-        const appointment = await appointmentModel.findById(id)
-        appointment.status = "cancelled"
+        const { appointmentId } = req.body
+        const appointment = await appointmentModel.findById(appointmentId)
+        if (!appointment) {
+            return res.json({ success: false, message: "Appointment not found" })
+        }
+        appointment.cancelled = true
         await appointment.save()
         res.json({ success: true, message: "Appointment cancelled" })
     } catch (error) {

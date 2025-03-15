@@ -61,21 +61,30 @@ const AdminContextProvider = (props) => {
 
     // Getting all appointment data from Database using API
     const getAllAppointments = async () => {
-
         try {
-
+            console.log("Fetching appointments with token:", aToken);
+            console.log("Backend URL:", backendUrl);
+            
             const { data } = await axios.get(backendUrl + '/api/admin/appointments', { headers: { atoken: aToken } })
+            console.log("Appointments API response:", data);
+            
             if (data.success) {
-                setAppointments(data.appointments.reverse())
+                // Ensure all appointments have the required fields
+                const validatedAppointments = data.appointments.map(appointment => {
+                    // Create default objects if they don't exist
+                    if (!appointment.userData) appointment.userData = {};
+                    if (!appointment.docData) appointment.docData = {};
+                    return appointment;
+                });
+                
+                setAppointments(validatedAppointments.reverse());
             } else {
                 toast.error(data.message)
             }
-
         } catch (error) {
             toast.error(error.message)
-            console.log(error)
+            console.log("Error fetching appointments:", error)
         }
-
     }
 
     // Function to cancel appointment using API

@@ -13,3 +13,9 @@
 ::-webkit-scrollbar {
     @apply hidden
 }
+
+/* Fix for SVG width/height auto errors */
+svg[width="auto"], svg[height="auto"] {
+  width: 1em;
+  height: 1em;
+}

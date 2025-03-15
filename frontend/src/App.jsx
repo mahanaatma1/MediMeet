@@ -16,6 +16,7 @@ import Verify from './pages/Verify'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import Careers from './pages/Careers'
 import MyApplications from './components/MyApplications'
+import MeetingRoom from './pages/MeetingRoom'
 
 const App = () => {
   return (
@@ -37,6 +38,7 @@ const App = () => {
         <Route path='/privacy-policy' element={<PrivacyPolicy />} />
         <Route path='/careers' element={<Careers />} />
         <Route path='/my-applications' element={<MyApplications />} />
+        <Route path='/meeting/:appointmentId' element={<MeetingRoom />} />
       </Routes>
       <Footer />
     </div>

@@ -2,11 +2,13 @@ import { useContext, useEffect } from 'react'
 import { DoctorContext } from '../../context/DoctorContext'
 import { AppContext } from '../../context/AppContext'
 import { assets } from '../../assets/assets'
+import { useNavigate } from 'react-router-dom'
 
 const DoctorAppointments = () => {
 
   const { dToken, appointments, getAppointments, cancelAppointment, completeAppointment } = useContext(DoctorContext)
   const { slotDateFormat, calculateAge, currency } = useContext(AppContext)
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (dToken) {
@@ -48,6 +50,14 @@ const DoctorAppointments = () => {
               : item.isCompleted
                 ? <p className='text-green-500 text-xs font-medium'>Completed</p>
                 : <div className='flex'>
+                  {item.payment && (
+                    <button 
+                      onClick={() => navigate(`/doctor-meeting/${item._id}`)}
+                      className='px-2 py-1 mr-2 bg-primary text-white text-xs rounded hover:bg-primary-dark'
+                    >
+                      Start Meeting
+                    </button>
+                  )}
                   <img onClick={() => cancelAppointment(item._id)} className='w-10 cursor-pointer' src={assets.cancel_icon} alt="" />
                   <img onClick={() => completeAppointment(item._id)} className='w-10 cursor-pointer' src={assets.tick_icon} alt="" />
                 </div>

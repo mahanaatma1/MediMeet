@@ -34,14 +34,24 @@ const AllAppointments = () => {
           <div className='flex flex-wrap justify-between max-sm:gap-2 sm:grid sm:grid-cols-[0.5fr_3fr_1fr_3fr_3fr_1fr_1fr] items-center text-gray-500 py-3 px-6 border-b hover:bg-gray-50' key={index}>
             <p className='max-sm:hidden'>{index+1}</p>
             <div className='flex items-center gap-2'>
-              <img src={item.userData.image} className='w-8 rounded-full' alt="" /> <p>{item.userData.name}</p>
+              {item.userData && item.userData.image ? (
+                <img src={item.userData.image} className='w-8 rounded-full' alt="" />
+              ) : (
+                <div className='w-8 h-8 rounded-full bg-gray-200'></div>
+              )}
+              <p>{item.userData ? item.userData.name : 'Unknown'}</p>
             </div>
-            <p className='max-sm:hidden'>{calculateAge(item.userData.dob)}</p>
-            <p>{slotDateFormat(item.slotDate)}, {item.slotTime}</p>
+            <p className='max-sm:hidden'>{item.userData && item.userData.dob ? calculateAge(item.userData.dob) : 'N/A'}</p>
+            <p>{item.slotDate ? slotDateFormat(item.slotDate) : 'N/A'}, {item.slotTime || 'N/A'}</p>
             <div className='flex items-center gap-2'>
-              <img src={item.docData.image} className='w-8 rounded-full bg-gray-200' alt="" /> <p>{item.docData.name}</p>
+              {item.docData && item.docData.image ? (
+                <img src={item.docData.image} className='w-8 rounded-full bg-gray-200' alt="" />
+              ) : (
+                <div className='w-8 h-8 rounded-full bg-gray-200'></div>
+              )}
+              <p>{item.docData ? item.docData.name : 'Unknown'}</p>
             </div>
-            <p>{currency}{item.amount}</p>
+            <p>{currency}{item.amount || 0}</p>
             {item.cancelled ? <p className='text-red-400 text-xs font-medium'>Cancelled</p> : item.isCompleted ? <p className='text-green-500 text-xs font-medium'>Completed</p> : <img onClick={() => cancelAppointment(item._id)} className='w-10 cursor-pointer' src={assets.cancel_icon} alt="" />}
           </div>
         ))}

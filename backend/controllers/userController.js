@@ -393,6 +393,11 @@ const submitJobApplication = async (req, res) => {
     const { jobId, fullName, email, phone, address, experience, education, coverLetter } = req.body;
     const resumeFile = req.file;
 
+    // upload image to cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "doctors",
+    })
+
     // Validate required fields
     if (!userId || !fullName || !email || !phone || !address || !experience || !education || !resumeFile) {
       return res.status(400).json({ success: false, message: "All fields are required" });
@@ -443,18 +448,97 @@ const submitJobApplication = async (req, res) => {
 
 // Get user's job applications
 const getUserApplications = async (req, res) => {
-  try {
-    const { userId } = req.body;
-    
-    const applications = await jobApplicationModel
-      .find({ userId })
-      .populate('jobId')
-      .sort({ appliedAt: -1 });
+    try {
+        const userId = req.user.id;
+        
+        const applications = await jobApplicationModel.find({ user: userId })
+            .populate('job')
+            .sort({ createdAt: -1 });
+        
+        return res.json({
+            success: true,
+            applications
+        });
+    } catch (error) {
+        console.error('Error fetching user applications:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch applications'
+        });
+    }
+};
 
-    res.json({ success: true, applications });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+// API to mark appointment as completed by user
+const completeAppointment = async (req, res) => {
+    try {
+        const { appointmentId, userId } = req.body;
+        
+        // Validate input
+        if (!appointmentId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Appointment ID is required'
+            });
+        }
+        
+        // Find the appointment
+        const appointment = await appointmentModel.findById(appointmentId);
+        
+        // Check if appointment exists
+        if (!appointment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Appointment not found'
+            });
+        }
+        
+        // Check if the appointment belongs to the user
+        if (appointment.user.toString() !== req.user.id) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not authorized to complete this appointment'
+            });
+        }
+        
+        // Check if appointment is already cancelled
+        if (appointment.isCancelled) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot complete a cancelled appointment'
+            });
+        }
+        
+        // Check if appointment is already completed
+        if (appointment.isCompleted) {
+            return res.status(400).json({
+                success: false,
+                message: 'Appointment is already marked as completed'
+            });
+        }
+        
+        // Mark appointment as completed
+        appointment.isCompleted = true;
+        
+        // If the meeting was started but not properly ended, set the end time
+        if (appointment.meetingStarted && !appointment.meetingEnded) {
+            appointment.meetingEnded = new Date();
+        }
+        
+        // Save the updated appointment
+        await appointment.save();
+        
+        return res.json({
+            success: true,
+            message: 'Appointment marked as completed successfully',
+            appointment
+        });
+    } catch (error) {
+        console.error('Error completing appointment:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to complete appointment'
+        });
+    }
 };
 
 export {
@@ -472,5 +556,6 @@ export {
     getActiveJobs,
     checkJobApplication,
     submitJobApplication,
-    getUserApplications
+    getUserApplications,
+    completeAppointment
 }
