@@ -128,55 +128,17 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
         // Attach local video track to video element
         const videoTrack = localTracks.find(track => track.kind === 'video');
         if (videoTrack) {
-          console.log("Attaching local video track to video element");
-          
-          // Function to attach video track with retry
-          const attachLocalVideoTrack = (retryCount = 0) => {
-            if (videoRef) {
-              console.log("videoRef is available, attaching local video track");
-              try {
-                videoTrack.detach().forEach(element => element.remove());
-                videoTrack.attach(videoRef);
-                console.log("Local video track attached successfully");
-              } catch (error) {
-                console.error("Error attaching local video track:", error);
-              }
-            } else if (retryCount < 5) {
-              console.log(`videoRef is not available yet, will retry in 500ms (attempt ${retryCount + 1}/5)`);
-              setTimeout(() => attachLocalVideoTrack(retryCount + 1), 500);
-            } else {
-              console.log("videoRef still not available after 5 retries, creating fallback element");
-              // Create a fallback video element
-              try {
-                const localVideoContainer = document.querySelector('.local-video-container');
-                if (localVideoContainer) {
-                  console.log("Found local-video-container, creating video element");
-                  const existingVideo = localVideoContainer.querySelector('video');
-                  if (existingVideo) {
-                    existingVideo.remove();
-                  }
-                  
-                  const videoElement = document.createElement('video');
-                  videoElement.autoPlay = true;
-                  videoElement.playsInline = true;
-                  videoElement.muted = true;
-                  videoElement.className = "w-full h-full object-cover absolute inset-0";
-                  
-                  localVideoContainer.appendChild(videoElement);
-                  videoTrack.attach(videoElement);
-                  console.log("Successfully attached to dynamically created video element");
-                } else {
-                  console.error("Could not find local-video-container for fallback");
-                }
-              } catch (error) {
-                console.error("Error creating fallback video element:", error);
-              }
-            }
-          };
-          
-          // Start the attachment process
-          attachLocalVideoTrack();
+          console.log("Attaching local video track");
+          attachLocalVideoTrack(videoTrack);
         }
+        
+        // Enhanced ICE servers configuration for better NAT traversal
+        const iceServers = [
+          { urls: 'stun:global.stun.twilio.com:3478?transport=udp' },
+          { urls: 'turn:global.turn.twilio.com:3478?transport=udp', username: 'token', credential: data.token },
+          { urls: 'turn:global.turn.twilio.com:3478?transport=tcp', username: 'token', credential: data.token },
+          { urls: 'turn:global.turn.twilio.com:443?transport=tcp', username: 'token', credential: data.token }
+        ];
         
         // Connect to the room with optimized settings
         console.log("Connecting to room:", data.roomName);
@@ -184,16 +146,51 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
           name: data.roomName,
           tracks: localTracks,
           networkQuality: {
-            local: 1,
-            remote: 1
+            local: 3, // Increase from 1 to 3 for better quality monitoring
+            remote: 3  // Increase from 1 to 3 for better quality monitoring
           },
           bandwidthProfile: bandwidthProfileOptions,
           preferredVideoCodecs: [{ codec: 'VP8', simulcast: true }],
           maxAudioBitrate: 16000, // Optimize audio bitrate
           dominantSpeaker: true,
-          automaticSubscription: true
+          automaticSubscription: true, // Ensure this is true for automatic track subscription
+          // Add these options for better connection in hosted environments
+          enableDscp: true, // Enable QoS packet marking
+          maxVideoBitrate: 2500000, // 2.5 Mbps max for video
+          iceTransportPolicy: 'all', // Allow all ICE candidates
+          iceServers: iceServers, // Use enhanced ICE servers configuration
+          // Add these options for better connection reliability
+          reconnectionAttempts: 5,
+          reconnectionBackOff: 1.1,
+          enableIceRestart: true,
+          // Add these options for better media handling
+          preferredAudioCodecs: [{ codec: 'opus' }],
+          maxAudioBitrate: 24000,
+          audioAcquisitionOptimization: 'voice'
         });
         console.log("Connected to room:", room);
+        
+        // Log the ICE connection state
+        const pc = room._signaling._peerConnectionManager._peerConnections.values().next().value;
+        if (pc) {
+          console.log(`Initial ICE connection state: ${pc.iceConnectionState}`);
+          
+          // Add event listener for ICE connection state changes
+          pc.addEventListener('iceconnectionstatechange', () => {
+            console.log(`ICE connection state changed to: ${pc.iceConnectionState}`);
+            
+            // If the connection fails, try to restart ICE
+            if (pc.iceConnectionState === 'failed') {
+              console.log("ICE connection failed, attempting to restart");
+              try {
+                pc.restartIce();
+                console.log("ICE restart initiated");
+              } catch (error) {
+                console.error("Error restarting ICE:", error);
+              }
+            }
+          });
+        }
         
         setRoom(room);
         
@@ -228,9 +225,46 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
         room.on('reconnected', () => {
           console.log('Successfully reconnected to the room');
           toast.success('Reconnected to meeting');
+          
+          // Force recovery of all tracks after reconnection
+          setTimeout(() => {
+            room.participants.forEach(participant => {
+              forceRemoteVideoRecovery(participant);
+              forceRemoteAudioRecovery(participant);
+            });
+          }, 2000);
+        });
+        
+        // Add a listener for track publication
+        room.localParticipant.on('trackPublished', publication => {
+          console.log(`Local track ${publication.trackName} was successfully published`);
+        });
+        
+        // Add a listener for track publication failed
+        room.localParticipant.on('trackPublicationFailed', (error, track) => {
+          console.error(`Local track ${track.kind} publication failed:`, error);
+          // Try to republish the track
+          setTimeout(async () => {
+            try {
+              console.log(`Attempting to republish ${track.kind} track`);
+              await room.localParticipant.publishTrack(track);
+              console.log(`Successfully republished ${track.kind} track`);
+            } catch (err) {
+              console.error(`Failed to republish ${track.kind} track:`, err);
+            }
+          }, 3000);
         });
         
         setLoading(false);
+        
+        // Force a check for all participants after a delay
+        setTimeout(() => {
+          room.participants.forEach(participant => {
+            forceRemoteVideoRecovery(participant);
+            forceRemoteAudioRecovery(participant);
+          });
+        }, 5000);
+        
       } catch (videoError) {
         console.error('Error with Twilio Video:', videoError);
         setError('Failed to initialize video. Please check your camera and microphone permissions.');
@@ -315,6 +349,12 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
     console.log(`Participant ${participant.identity} has ${participant.tracks.size} tracks`);
     participant.tracks.forEach(publication => {
       console.log(`Publication track: ${publication.trackName}, isSubscribed: ${publication.isSubscribed}, kind: ${publication.track?.kind || 'unknown'}`);
+      
+      // Force subscription to all tracks
+      if (!publication.isSubscribed && publication.track) {
+        console.log(`Force subscribing to track: ${publication.trackName}`);
+        handleTrackSubscribed(publication.track, participant);
+      }
     });
     
     // Handle participant's existing tracks
@@ -337,6 +377,15 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
     // Handle track subscription failures
     participant.on('trackSubscriptionFailed', (error, track) => {
       console.error(`Track subscription failed for ${track.kind} from ${participant.identity}:`, error);
+      // Try to recover from subscription failure
+      setTimeout(() => {
+        console.log(`Attempting to recover from subscription failure for ${track.kind}`);
+        if (track.kind === 'video') {
+          forceRemoteVideoRecovery(participant);
+        } else if (track.kind === 'audio') {
+          forceRemoteAudioRecovery(participant);
+        }
+      }, 2000);
     });
     
     // Handle track enabled/disabled events
@@ -351,7 +400,23 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
     participant.on('trackUnsubscribed', track => {
       console.log(`Track ${track.kind} unsubscribed from ${participant.identity}`);
       handleTrackUnsubscribed(track, participant);
+      
+      // Try to resubscribe after a short delay
+      setTimeout(() => {
+        console.log(`Attempting to resubscribe to ${track.kind} track from ${participant.identity}`);
+        if (track.kind === 'video') {
+          forceRemoteVideoRecovery(participant);
+        } else if (track.kind === 'audio') {
+          forceRemoteAudioRecovery(participant);
+        }
+      }, 2000);
     });
+    
+    // Force initial recovery attempt for all participants
+    setTimeout(() => {
+      forceRemoteVideoRecovery(participant);
+      forceRemoteAudioRecovery(participant);
+    }, 3000);
   };
   
   // Handle when a participant disconnects
@@ -384,7 +449,7 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
         // Set video element properties for better performance
         element.style.objectFit = 'cover';
         
-        // Reduce resolution for better performance if needed
+        // Apply different constraints based on screen size
         if (window.innerWidth < 768) {
           // On mobile, use lower resolution
           track.mediaStreamTrack.applyConstraints({
@@ -392,7 +457,17 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
             height: { ideal: 240, max: 480 },
             frameRate: { ideal: 15, max: 24 }
           }).catch(e => console.error('Failed to apply constraints:', e));
+        } else {
+          // On larger screens, use higher resolution
+          track.mediaStreamTrack.applyConstraints({
+            width: { ideal: 640, max: 1280 },
+            height: { ideal: 480, max: 720 },
+            frameRate: { ideal: 24, max: 30 }
+          }).catch(e => console.error('Failed to apply constraints:', e));
         }
+        
+        // Ensure video is visible
+        element.style.display = 'block';
       }
       
       return true;
@@ -408,6 +483,67 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
     
     if (track.kind === 'video') {
       console.log("Attaching remote video track");
+      
+      // For larger screens, use a more direct approach
+      if (window.innerWidth >= 768) {
+        console.log("Using direct approach for larger screens");
+        
+        try {
+          // First try to find existing element
+          const remoteContainer = document.getElementById('remote-container') || document.querySelector('.remote-video-container');
+          if (!remoteContainer) {
+            console.error("Could not find remote container");
+            return;
+          }
+          
+          // Remove any existing video elements to avoid duplicates
+          const existingVideos = remoteContainer.querySelectorAll('video');
+          existingVideos.forEach(video => {
+            try {
+              // Only remove videos that aren't attached to this track
+              const attachedElements = track.detachElements();
+              const isAttached = Array.from(attachedElements).some(el => el === video);
+              if (!isAttached) {
+                video.remove();
+              }
+            } catch (e) {
+              console.error("Error removing existing video:", e);
+            }
+          });
+          
+          // Create a new video element
+          const videoElement = document.createElement('video');
+          videoElement.id = 'remote-video';
+          videoElement.autoPlay = true;
+          videoElement.playsInline = true;
+          videoElement.style.width = '100%';
+          videoElement.style.height = '100%';
+          videoElement.style.objectFit = 'cover';
+          videoElement.style.position = 'absolute';
+          videoElement.style.top = '0';
+          videoElement.style.left = '0';
+          videoElement.style.zIndex = '1';
+          videoElement.style.display = 'block';
+          
+          // Append to container
+          remoteContainer.appendChild(videoElement);
+          
+          // Detach track from any existing elements
+          track.detach().forEach(el => el.remove());
+          
+          // Attach to our new element
+          track.attach(videoElement);
+          
+          // Update ref
+          setRemoteVideoRef(videoElement);
+          
+          console.log("Successfully attached remote video track for large screen");
+          return;
+        } catch (error) {
+          console.error("Error with direct approach for large screen:", error);
+          // Fall back to the regular approach
+        }
+      }
       
       // Function to attach video track with retry and multiple fallbacks
       const attachVideoTrack = (retryCount = 0) => {
@@ -425,6 +561,14 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
           const remoteVideo = document.getElementById('remote-video');
           if (remoteVideo) {
             console.log("Found remote-video by ID, attaching track");
+            
+            // For large screens, ensure proper sizing
+            if (window.innerWidth >= 768) {
+              remoteVideo.style.width = '100%';
+              remoteVideo.style.height = '100%';
+              remoteVideo.style.objectFit = 'cover';
+            }
+            
             if (optimizeTrackAttachment(track, remoteVideo)) {
               console.log("Remote video track attached successfully via ID");
               return true;
@@ -447,6 +591,13 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
               videoElement.playsInline = true;
               videoElement.className = "w-full h-full object-cover absolute inset-0";
               remoteContainer.appendChild(videoElement);
+            }
+            
+            // For large screens, ensure proper sizing
+            if (window.innerWidth >= 768) {
+              videoElement.style.width = '100%';
+              videoElement.style.height = '100%';
+              videoElement.style.objectFit = 'cover';
             }
             
             if (optimizeTrackAttachment(track, videoElement)) {
@@ -659,10 +810,43 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
     }
   };
   
-  // Join the meeting when component mounts
+  // Component mounted effect
   useEffect(() => {
     console.log("VideoMeeting component mounted, setting componentMounted to true");
     setComponentMounted(true);
+    
+    // Add CSS to ensure videos display properly on all screen sizes
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+      .remote-video-container video,
+      .local-video-container video {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: 1 !important;
+        display: block !important;
+      }
+      
+      @media (min-width: 768px) {
+        .remote-video-container,
+        .local-video-container {
+          overflow: hidden !important;
+          position: relative !important;
+        }
+        
+        .remote-video-container {
+          min-height: 400px !important;
+        }
+        
+        .local-video-container {
+          min-height: 200px !important;
+        }
+      }
+    `;
+    document.head.appendChild(styleElement);
     
     // Cleanup function
     return () => {
@@ -673,6 +857,8 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
       if (localTracks.length > 0) {
         localTracks.forEach(track => track.stop());
       }
+      // Remove the style element
+      document.head.removeChild(styleElement);
     };
   }, []);
   
@@ -766,7 +952,17 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
         const localVideo = document.getElementById('local-video');
         if (localVideo) {
           try {
-            optimizeTrackAttachment(videoTrack, localVideo);
+            // Ensure proper detachment before attaching
+            videoTrack.detach().forEach(el => el.remove());
+            
+            // For large screens, ensure proper sizing
+            if (window.innerWidth >= 768) {
+              localVideo.style.width = '100%';
+              localVideo.style.height = '100%';
+              localVideo.style.objectFit = 'cover';
+            }
+            
+            videoTrack.attach(localVideo);
             console.log("Successfully attached local video track");
           } catch (error) {
             console.error("Error attaching local video track:", error);
@@ -799,7 +995,17 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
           const localVideo = document.getElementById('local-video');
           if (localVideo) {
             try {
-              optimizeTrackAttachment(videoTrack, localVideo);
+              // Ensure proper detachment before attaching
+              videoTrack.detach().forEach(el => el.remove());
+              
+              // For large screens, ensure proper sizing
+              if (window.innerWidth >= 768) {
+                localVideo.style.width = '100%';
+                localVideo.style.height = '100%';
+                localVideo.style.objectFit = 'cover';
+              }
+              
+              videoTrack.attach(localVideo);
               console.log("Re-attached local video track after delay");
             } catch (error) {
               console.error("Error re-attaching local video track after delay:", error);
@@ -1066,6 +1272,787 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
     }
   }, [componentMounted, localTracks]);
 
+  // Add a window resize handler to adjust video constraints based on screen size
+  useEffect(() => {
+    if (!componentMounted) return;
+    
+    const handleResize = () => {
+      console.log(`Window resized to ${window.innerWidth}x${window.innerHeight}`);
+      
+      // Update local video track constraints based on screen size
+      if (localTracks.length > 0) {
+        const videoTrack = localTracks.find(track => track.kind === 'video');
+        if (videoTrack && videoTrack.mediaStreamTrack) {
+          if (window.innerWidth < 768) {
+            // Mobile constraints
+            videoTrack.mediaStreamTrack.applyConstraints({
+              width: { ideal: 320, max: 640 },
+              height: { ideal: 240, max: 480 },
+              frameRate: { ideal: 15, max: 24 }
+            }).catch(e => console.error('Failed to apply constraints on resize:', e));
+          } else {
+            // Desktop constraints
+            videoTrack.mediaStreamTrack.applyConstraints({
+              width: { ideal: 640, max: 1280 },
+              height: { ideal: 480, max: 720 },
+              frameRate: { ideal: 24, max: 30 }
+            }).catch(e => console.error('Failed to apply constraints on resize:', e));
+          }
+        }
+      }
+      
+      // Ensure video elements have proper styling
+      const localVideo = document.getElementById('local-video');
+      const remoteVideo = document.getElementById('remote-video');
+      
+      if (localVideo) {
+        localVideo.style.objectFit = 'cover';
+        if (window.innerWidth >= 768) {
+          localVideo.style.width = '100%';
+          localVideo.style.height = '100%';
+        }
+      }
+      
+      if (remoteVideo) {
+        remoteVideo.style.objectFit = 'cover';
+        if (window.innerWidth >= 768) {
+          remoteVideo.style.width = '100%';
+          remoteVideo.style.height = '100%';
+        }
+      }
+    };
+    
+    // Add resize listener
+    window.addEventListener('resize', handleResize);
+    
+    // Call once to set initial values
+    handleResize();
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [componentMounted, localTracks]);
+
+  // Add a function to force video element visibility
+  const forceVideoElementVisibility = () => {
+    console.log("Forcing video element visibility");
+    
+    // Force local video visibility
+    const localVideo = document.getElementById('local-video');
+    if (localVideo) {
+      localVideo.style.display = 'block';
+      localVideo.style.width = '100%';
+      localVideo.style.height = '100%';
+      localVideo.style.objectFit = 'cover';
+      localVideo.style.position = 'absolute';
+      localVideo.style.top = '0';
+      localVideo.style.left = '0';
+      localVideo.style.zIndex = '1';
+    }
+    
+    // Force remote video visibility
+    const remoteVideo = document.getElementById('remote-video');
+    if (remoteVideo) {
+      remoteVideo.style.display = 'block';
+      remoteVideo.style.width = '100%';
+      remoteVideo.style.height = '100%';
+      remoteVideo.style.objectFit = 'cover';
+      remoteVideo.style.position = 'absolute';
+      remoteVideo.style.top = '0';
+      remoteVideo.style.left = '0';
+      remoteVideo.style.zIndex = '1';
+    }
+  };
+
+  // Add a periodic check to ensure video elements are visible
+  useEffect(() => {
+    if (!componentMounted) return;
+    
+    console.log("Setting up periodic visibility check for video elements");
+    
+    // Initial force
+    forceVideoElementVisibility();
+    
+    // Set up interval to periodically check and force visibility
+    const intervalId = setInterval(() => {
+      forceVideoElementVisibility();
+    }, 5000); // Check every 5 seconds
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [componentMounted]);
+
+  // Attach local video track to video element
+  const attachLocalVideoTrack = (videoTrack, retryCount = 0) => {
+    if (videoRef) {
+      console.log("videoRef is available, attaching local video track");
+      try {
+        videoTrack.detach().forEach(element => element.remove());
+        videoTrack.attach(videoRef);
+        console.log("Local video track attached successfully");
+      } catch (error) {
+        console.error("Error attaching local video track:", error);
+      }
+    } else if (retryCount < 5) {
+      console.log(`videoRef is not available yet, will retry in 500ms (attempt ${retryCount + 1}/5)`);
+      setTimeout(() => attachLocalVideoTrack(videoTrack, retryCount + 1), 500);
+    } else {
+      console.log("videoRef still not available after 5 retries, creating fallback element");
+      
+      // For larger screens, use a more direct approach
+      if (window.innerWidth >= 768) {
+        console.log("Using direct approach for local video on larger screens");
+        
+        try {
+          // First try to find existing element
+          const localContainer = document.querySelector('.local-video-container') || document.getElementById('local-container');
+          if (!localContainer) {
+            console.error("Could not find local container");
+            return;
+          }
+          
+          // Remove any existing video elements to avoid duplicates
+          const existingVideos = localContainer.querySelectorAll('video');
+          existingVideos.forEach(video => {
+            try {
+              // Only remove videos that aren't attached to this track
+              const attachedElements = videoTrack.detachElements();
+              const isAttached = Array.from(attachedElements).some(el => el === video);
+              if (!isAttached) {
+                video.remove();
+              }
+            } catch (e) {
+              console.error("Error removing existing video:", e);
+            }
+          });
+          
+          // Create a new video element
+          const videoElement = document.createElement('video');
+          videoElement.id = 'local-video';
+          videoElement.autoPlay = true;
+          videoElement.playsInline = true;
+          videoElement.muted = true;
+          videoElement.style.width = '100%';
+          videoElement.style.height = '100%';
+          videoElement.style.objectFit = 'cover';
+          videoElement.style.position = 'absolute';
+          videoElement.style.top = '0';
+          videoElement.style.left = '0';
+          videoElement.style.zIndex = '1';
+          videoElement.style.display = 'block';
+          
+          // Append to container
+          localContainer.appendChild(videoElement);
+          
+          // Detach track from any existing elements
+          videoTrack.detach().forEach(el => el.remove());
+          
+          // Attach to our new element
+          videoTrack.attach(videoElement);
+          
+          // Update ref
+          setVideoRef(videoElement);
+          
+          console.log("Successfully attached local video track for large screen");
+          return;
+        } catch (error) {
+          console.error("Error with direct approach for local video on large screen:", error);
+          // Fall back to the regular approach
+        }
+      }
+      
+      // Create a fallback video element
+      try {
+        const localVideoContainer = document.querySelector('.local-video-container');
+        if (localVideoContainer) {
+          console.log("Found local-video-container, creating video element");
+          const existingVideo = localVideoContainer.querySelector('video');
+          if (existingVideo) {
+            existingVideo.remove();
+          }
+          
+          const videoElement = document.createElement('video');
+          videoElement.autoPlay = true;
+          videoElement.playsInline = true;
+          videoElement.muted = true;
+          videoElement.className = "w-full h-full object-cover absolute inset-0";
+          
+          localVideoContainer.appendChild(videoElement);
+          videoTrack.attach(videoElement);
+          console.log("Successfully attached to dynamically created video element");
+        } else {
+          console.error("Could not find local-video-container for fallback");
+        }
+      } catch (error) {
+        console.error("Error creating fallback video element:", error);
+      }
+    }
+  };
+
+  // Function to force remote video recovery
+  const forceRemoteVideoRecovery = (participant) => {
+    console.log(`Forcing remote video recovery for ${participant.identity}`);
+    
+    participant.tracks.forEach(publication => {
+      if (publication.trackName.includes('video')) {
+        if (publication.isSubscribed && publication.track) {
+          console.log(`Found subscribed video track from ${participant.identity}, re-attaching`);
+          const track = publication.track;
+          
+          // For larger screens, use a more direct approach
+          if (window.innerWidth >= 768) {
+            console.log("Using direct approach for larger screens in recovery");
+            
+            try {
+              // First try to find existing element
+              const remoteContainer = document.getElementById('remote-container') || document.querySelector('.remote-video-container');
+              if (!remoteContainer) {
+                console.error("Could not find remote container");
+                return;
+              }
+              
+              // Create a new video element
+              const videoElement = document.createElement('video');
+              videoElement.id = 'remote-video';
+              videoElement.autoPlay = true;
+              videoElement.playsInline = true;
+              videoElement.style.width = '100%';
+              videoElement.style.height = '100%';
+              videoElement.style.objectFit = 'cover';
+              videoElement.style.position = 'absolute';
+              videoElement.style.top = '0';
+              videoElement.style.left = '0';
+              videoElement.style.zIndex = '1';
+              videoElement.style.display = 'block';
+              
+              // Remove any existing video elements
+              const existingVideos = remoteContainer.querySelectorAll('video');
+              existingVideos.forEach(video => video.remove());
+              
+              // Append to container
+              remoteContainer.appendChild(videoElement);
+              
+              // Detach track from any existing elements
+              track.detach().forEach(el => el.remove());
+              
+              // Attach to our new element
+              track.attach(videoElement);
+              
+              // Update ref
+              setRemoteVideoRef(videoElement);
+              
+              console.log("Successfully attached remote video track in recovery");
+            } catch (error) {
+              console.error("Error with direct approach for recovery:", error);
+            }
+          } else {
+            // For mobile screens
+            try {
+              const remoteVideo = document.getElementById('remote-video');
+              if (remoteVideo) {
+                track.detach().forEach(el => el.remove());
+                track.attach(remoteVideo);
+                console.log("Successfully re-attached remote video track on mobile");
+              } else {
+                console.error("Could not find remote video element for recovery");
+              }
+            } catch (error) {
+              console.error("Error re-attaching remote video track:", error);
+            }
+          }
+        } else {
+          console.log(`Video track from ${participant.identity} is not subscribed, cannot recover`);
+        }
+      }
+    });
+  };
+
+  // Function to force remote audio recovery
+  const forceRemoteAudioRecovery = (participant) => {
+    console.log(`Forcing remote audio recovery for ${participant.identity}`);
+    
+    participant.tracks.forEach(publication => {
+      if (publication.trackName.includes('audio')) {
+        if (publication.isSubscribed && publication.track) {
+          console.log(`Found subscribed audio track from ${participant.identity}, re-attaching`);
+          const track = publication.track;
+          
+          try {
+            const remoteAudio = document.getElementById('remote-audio');
+            if (remoteAudio) {
+              track.detach().forEach(el => el.remove());
+              track.attach(remoteAudio);
+              console.log("Successfully re-attached remote audio track");
+            } else {
+              // Create new audio element if not found
+              const remoteContainer = document.getElementById('remote-container') || document.querySelector('.remote-video-container');
+              if (remoteContainer) {
+                const audioElement = document.createElement('audio');
+                audioElement.id = 'remote-audio';
+                audioElement.autoPlay = true;
+                
+                // Remove any existing audio elements
+                const existingAudios = remoteContainer.querySelectorAll('audio');
+                existingAudios.forEach(audio => audio.remove());
+                
+                remoteContainer.appendChild(audioElement);
+                track.attach(audioElement);
+                setRemoteAudioRef(audioElement);
+                console.log("Created and attached to new audio element");
+              }
+            }
+          } catch (error) {
+            console.error("Error re-attaching remote audio track:", error);
+          }
+        } else {
+          console.log(`Audio track from ${participant.identity} is not subscribed, cannot recover`);
+        }
+      }
+    });
+  };
+
+  // Add a more aggressive periodic check for remote tracks
+  useEffect(() => {
+    if (participants.length > 0 && room) {
+      console.log("Setting up aggressive periodic check for remote tracks");
+      
+      const checkInterval = setInterval(() => {
+        console.log("Running aggressive check for remote tracks");
+        
+        participants.forEach(participant => {
+          forceRemoteVideoRecovery(participant);
+          forceRemoteAudioRecovery(participant);
+        });
+        
+        // Also force video element visibility
+        forceVideoElementVisibility();
+        
+      }, 5000); // Check every 5 seconds
+      
+      return () => clearInterval(checkInterval);
+    }
+  }, [participants, room]);
+
+  // Add a function to check and fix ICE connection issues
+  const checkAndFixIceConnection = () => {
+    if (!room) return;
+    
+    console.log("Checking ICE connection status");
+    
+    // Check the state of the Peer Connection
+    const pc = room._signaling._peerConnectionManager._peerConnections.values().next().value;
+    if (pc) {
+      const iceConnectionState = pc.iceConnectionState;
+      console.log(`Current ICE connection state: ${iceConnectionState}`);
+      
+      // If the connection is in a problematic state, try to fix it
+      if (iceConnectionState === 'failed' || iceConnectionState === 'disconnected') {
+        console.log("ICE connection is in a problematic state, attempting to fix");
+        
+        // Try to restart ICE
+        try {
+          pc.restartIce();
+          console.log("ICE restart initiated");
+        } catch (error) {
+          console.error("Error restarting ICE:", error);
+        }
+        
+        // Force reconnection after a short delay if still in a bad state
+        setTimeout(() => {
+          if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+            console.log("ICE connection still problematic, forcing reconnection");
+            
+            // Disconnect and reconnect to the room
+            if (room) {
+              const roomName = room.name;
+              const token = room.localParticipant._signaling._token;
+              
+              console.log("Disconnecting from room to force reconnection");
+              room.disconnect();
+              
+              // Reconnect after a short delay
+              setTimeout(async () => {
+                try {
+                  console.log("Attempting to reconnect to room");
+                  const Video = await import('twilio-video');
+                  const newRoom = await Video.connect(token, {
+                    name: roomName,
+                    tracks: localTracks,
+                    networkQuality: { local: 3, remote: 3 },
+                    enableDscp: true,
+                    iceTransportPolicy: 'all',
+                    iceServers: [
+                      { urls: 'stun:global.stun.twilio.com:3478?transport=udp' },
+                      { urls: 'turn:global.turn.twilio.com:3478?transport=udp', username: 'token', credential: token },
+                      { urls: 'turn:global.turn.twilio.com:3478?transport=tcp', username: 'token', credential: token },
+                      { urls: 'turn:global.turn.twilio.com:443?transport=tcp', username: 'token', credential: token }
+                    ]
+                  });
+                  
+                  setRoom(newRoom);
+                  console.log("Successfully reconnected to room");
+                  
+                  // Re-handle participants
+                  newRoom.participants.forEach(participant => {
+                    handleParticipantConnected(participant);
+                  });
+                } catch (error) {
+                  console.error("Error reconnecting to room:", error);
+                  setError("Connection lost. Please try rejoining the meeting.");
+                  toast.error("Connection lost. Please try rejoining the meeting.");
+                }
+              }, 2000);
+            }
+          }
+        }, 5000);
+      }
+    }
+  };
+
+  // Add a periodic check for ICE connection issues
+  useEffect(() => {
+    if (room) {
+      console.log("Setting up periodic ICE connection check");
+      
+      const checkInterval = setInterval(() => {
+        checkAndFixIceConnection();
+      }, 10000); // Check every 10 seconds
+      
+      return () => clearInterval(checkInterval);
+    }
+  }, [room]);
+
+  // Add a function to force track publication
+  const forceTrackPublication = async () => {
+    if (!room || !room.localParticipant) return;
+    
+    console.log("Forcing track publication for local participant");
+    
+    // Get all local tracks
+    const tracks = Array.from(room.localParticipant.tracks.values());
+    
+    // Check if any tracks are not published
+    const unpublishedTracks = tracks.filter(publication => !publication.isTrackEnabled);
+    
+    if (unpublishedTracks.length > 0) {
+      console.log(`Found ${unpublishedTracks.length} unpublished tracks, attempting to republish`);
+      
+      for (const publication of unpublishedTracks) {
+        try {
+          // Unpublish and republish the track
+          console.log(`Republishing track: ${publication.trackName}`);
+          await room.localParticipant.unpublishTrack(publication.track);
+          await room.localParticipant.publishTrack(publication.track);
+          console.log(`Successfully republished track: ${publication.trackName}`);
+        } catch (error) {
+          console.error(`Error republishing track ${publication.trackName}:`, error);
+        }
+      }
+    } else {
+      console.log("All local tracks are published");
+      
+      // Force republish all tracks anyway to ensure they're properly published
+      for (const publication of tracks) {
+        try {
+          const track = publication.track;
+          if (track) {
+            console.log(`Force republishing track: ${publication.trackName}`);
+            await room.localParticipant.unpublishTrack(track);
+            await room.localParticipant.publishTrack(track);
+            console.log(`Successfully force republished track: ${publication.trackName}`);
+          }
+        } catch (error) {
+          console.error(`Error force republishing track ${publication.trackName}:`, error);
+        }
+      }
+    }
+  };
+
+  // Add a function to check and fix network issues
+  const checkAndFixNetworkIssues = async () => {
+    if (!room) return;
+    
+    console.log("Checking network status");
+    
+    // Check if we have any participants
+    if (room.participants.size === 0) {
+      console.log("No remote participants found, skipping network check");
+      return;
+    }
+    
+    // Check if we have any remote tracks
+    let hasRemoteTracks = false;
+    room.participants.forEach(participant => {
+      participant.tracks.forEach(publication => {
+        if (publication.isSubscribed) {
+          hasRemoteTracks = true;
+        }
+      });
+    });
+    
+    if (!hasRemoteTracks) {
+      console.log("No remote tracks found, attempting to fix");
+      
+      // Force track publication
+      await forceTrackPublication();
+      
+      // Force recovery for all participants
+      room.participants.forEach(participant => {
+        forceRemoteVideoRecovery(participant);
+        forceRemoteAudioRecovery(participant);
+      });
+      
+      // Check ICE connection
+      checkAndFixIceConnection();
+    } else {
+      console.log("Remote tracks found, network appears to be working");
+    }
+  };
+
+  // Add a periodic check for network issues
+  useEffect(() => {
+    if (room) {
+      console.log("Setting up periodic network check");
+      
+      const checkInterval = setInterval(() => {
+        checkAndFixNetworkIssues();
+      }, 15000); // Check every 15 seconds
+      
+      return () => clearInterval(checkInterval);
+    }
+  }, [room]);
+
+  // Add a more aggressive approach to ensure video elements are visible
+  const ensureVideoElementsExist = () => {
+    console.log("Ensuring video elements exist and are visible");
+    
+    // Check for local video container
+    const localContainer = document.querySelector('.local-video-container') || document.getElementById('local-container');
+    if (!localContainer) {
+      console.error("Local video container not found");
+      return;
+    }
+    
+    // Check for remote video container
+    const remoteContainer = document.querySelector('.remote-video-container') || document.getElementById('remote-container');
+    if (!remoteContainer) {
+      console.error("Remote video container not found");
+      return;
+    }
+    
+    // Ensure local video element exists
+    let localVideo = document.getElementById('local-video');
+    if (!localVideo) {
+      console.log("Creating local video element");
+      localVideo = document.createElement('video');
+      localVideo.id = 'local-video';
+      localVideo.autoPlay = true;
+      localVideo.playsInline = true;
+      localVideo.muted = true;
+      localVideo.className = "w-full h-full object-cover absolute inset-0";
+      localVideo.style.width = '100%';
+      localVideo.style.height = '100%';
+      localVideo.style.objectFit = 'cover';
+      localVideo.style.position = 'absolute';
+      localVideo.style.top = '0';
+      localVideo.style.left = '0';
+      localVideo.style.zIndex = '1';
+      localVideo.style.display = 'block';
+      localContainer.appendChild(localVideo);
+      setVideoRef(localVideo);
+      
+      // Attach local video track if available
+      if (localTracks.length > 0) {
+        const videoTrack = localTracks.find(track => track.kind === 'video');
+        if (videoTrack) {
+          console.log("Attaching local video track to newly created element");
+          try {
+            videoTrack.detach().forEach(el => el.remove());
+            videoTrack.attach(localVideo);
+          } catch (error) {
+            console.error("Error attaching local video track:", error);
+          }
+        }
+      }
+    }
+    
+    // Ensure remote video element exists
+    let remoteVideo = document.getElementById('remote-video');
+    if (!remoteVideo) {
+      console.log("Creating remote video element");
+      remoteVideo = document.createElement('video');
+      remoteVideo.id = 'remote-video';
+      remoteVideo.autoPlay = true;
+      remoteVideo.playsInline = true;
+      remoteVideo.className = "w-full h-full object-cover absolute inset-0";
+      remoteVideo.style.width = '100%';
+      remoteVideo.style.height = '100%';
+      remoteVideo.style.objectFit = 'cover';
+      remoteVideo.style.position = 'absolute';
+      remoteVideo.style.top = '0';
+      remoteVideo.style.left = '0';
+      remoteVideo.style.zIndex = '1';
+      remoteVideo.style.display = 'block';
+      remoteContainer.appendChild(remoteVideo);
+      setRemoteVideoRef(remoteVideo);
+    }
+    
+    // Ensure remote audio element exists
+    let remoteAudio = document.getElementById('remote-audio');
+    if (!remoteAudio) {
+      console.log("Creating remote audio element");
+      remoteAudio = document.createElement('audio');
+      remoteAudio.id = 'remote-audio';
+      remoteAudio.autoPlay = true;
+      remoteContainer.appendChild(remoteAudio);
+      setRemoteAudioRef(remoteAudio);
+    }
+    
+    // Attach remote tracks if available
+    if (room && room.participants.size > 0) {
+      room.participants.forEach(participant => {
+        participant.tracks.forEach(publication => {
+          if (publication.isSubscribed && publication.track) {
+            const track = publication.track;
+            if (track.kind === 'video' && remoteVideo) {
+              console.log(`Attaching remote video track from ${participant.identity} to newly created element`);
+              try {
+                track.detach().forEach(el => el.remove());
+                track.attach(remoteVideo);
+              } catch (error) {
+                console.error("Error attaching remote video track:", error);
+              }
+            } else if (track.kind === 'audio' && remoteAudio) {
+              console.log(`Attaching remote audio track from ${participant.identity} to newly created element`);
+              try {
+                track.detach().forEach(el => el.remove());
+                track.attach(remoteAudio);
+              } catch (error) {
+                console.error("Error attaching remote audio track:", error);
+              }
+            }
+          }
+        });
+      });
+    }
+    
+    // Mark refs as initialized
+    if (localVideo && remoteVideo && remoteAudio && !refsInitialized) {
+      console.log("All video elements created, marking refs as initialized");
+      setRefsInitialized(true);
+    }
+  };
+
+  // Add a useEffect to ensure video elements exist
+  useEffect(() => {
+    if (componentMounted) {
+      console.log("Setting up periodic check for video elements");
+      
+      // Initial check
+      ensureVideoElementsExist();
+      
+      // Set up interval to periodically check
+      const checkInterval = setInterval(() => {
+        ensureVideoElementsExist();
+      }, 3000); // Check every 3 seconds
+      
+      return () => clearInterval(checkInterval);
+    }
+  }, [componentMounted, localTracks, room]);
+
+  // Add a function to force reconnection if no remote tracks are received
+  const forceReconnectionIfNeeded = () => {
+    if (!room || !room.localParticipant) return;
+    
+    console.log("Checking if reconnection is needed");
+    
+    // Check if we have any participants
+    if (room.participants.size === 0) {
+      console.log("No remote participants found, skipping reconnection check");
+      return;
+    }
+    
+    // Check if we have any remote tracks
+    let hasRemoteTracks = false;
+    room.participants.forEach(participant => {
+      participant.tracks.forEach(publication => {
+        if (publication.isSubscribed) {
+          hasRemoteTracks = true;
+        }
+      });
+    });
+    
+    if (!hasRemoteTracks) {
+      console.log("No remote tracks found after 30 seconds, forcing reconnection");
+      
+      // Disconnect and reconnect to the room
+      const roomName = room.name;
+      const token = room.localParticipant._signaling._token;
+      
+      console.log("Disconnecting from room to force reconnection");
+      room.disconnect();
+      
+      // Reconnect after a short delay
+      setTimeout(async () => {
+        try {
+          console.log("Attempting to reconnect to room");
+          const Video = await import('twilio-video');
+          const newRoom = await Video.connect(token, {
+            name: roomName,
+            tracks: localTracks,
+            networkQuality: { local: 3, remote: 3 },
+            enableDscp: true,
+            iceTransportPolicy: 'all',
+            iceServers: [
+              { urls: 'stun:global.stun.twilio.com:3478?transport=udp' },
+              { urls: 'turn:global.turn.twilio.com:3478?transport=udp', username: 'token', credential: token },
+              { urls: 'turn:global.turn.twilio.com:3478?transport=tcp', username: 'token', credential: token },
+              { urls: 'turn:global.turn.twilio.com:443?transport=tcp', username: 'token', credential: token }
+            ],
+            reconnectionAttempts: 5,
+            enableIceRestart: true
+          });
+          
+          setRoom(newRoom);
+          console.log("Successfully reconnected to room");
+          
+          // Re-handle participants
+          newRoom.participants.forEach(participant => {
+            handleParticipantConnected(participant);
+          });
+          
+          // Force recovery after reconnection
+          setTimeout(() => {
+            newRoom.participants.forEach(participant => {
+              forceRemoteVideoRecovery(participant);
+              forceRemoteAudioRecovery(participant);
+            });
+          }, 2000);
+        } catch (error) {
+          console.error("Error reconnecting to room:", error);
+          setError("Connection lost. Please try rejoining the meeting.");
+          toast.error("Connection lost. Please try rejoining the meeting.");
+        }
+      }, 2000);
+    } else {
+      console.log("Remote tracks found, reconnection not needed");
+    }
+  };
+
+  // Add a one-time check for reconnection after 30 seconds
+  useEffect(() => {
+    if (room && room.participants.size > 0) {
+      console.log("Setting up one-time reconnection check after 30 seconds");
+      
+      const timeoutId = setTimeout(() => {
+        forceReconnectionIfNeeded();
+      }, 30000); // Check after 30 seconds
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [room]);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -1104,23 +2091,31 @@ const VideoMeeting = ({ appointmentId, isDoctor, backendUrl, token, onEndMeeting
         </div>
       </div>
       
-      {/* Video layout - responsive for mobile */}
+      {/* Video layout - responsive for mobile and desktop */}
       <div className="flex flex-col md:flex-row flex-1 p-2 md:p-4 gap-2 md:gap-4 relative">
         {/* Main video area - remote participant */}
-        <div className="flex-1 bg-black rounded-lg overflow-hidden relative min-h-[300px] md:min-h-[400px] remote-video-container" id="remote-container">
+        <div 
+          className="flex-1 bg-black rounded-lg overflow-hidden relative min-h-[300px] md:min-h-[400px] remote-video-container" 
+          id="remote-container"
+          style={{ position: 'relative', overflow: 'hidden' }}
+        >
           {/* Video element will be created and attached dynamically */}
           {participants.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center text-white">
+            <div className="absolute inset-0 flex items-center justify-center text-white z-10">
               <div>Waiting for other participant to join...</div>
             </div>
           )}
         </div>
         
         {/* Self view - local participant */}
-        <div className="h-[150px] md:h-auto md:w-1/4 bg-black rounded-lg overflow-hidden relative min-h-[150px] min-w-[200px] local-video-container" id="local-container">
+        <div 
+          className="h-[150px] md:h-auto md:w-1/4 bg-black rounded-lg overflow-hidden relative min-h-[150px] min-w-[200px] local-video-container" 
+          id="local-container"
+          style={{ position: 'relative', overflow: 'hidden' }}
+        >
           {/* Video element will be created and attached dynamically */}
           {!localTracks.some(track => track.kind === 'video') && (
-            <div className="absolute inset-0 flex items-center justify-center text-white">
+            <div className="absolute inset-0 flex items-center justify-center text-white z-10">
               <div>Camera not available</div>
             </div>
           )}
