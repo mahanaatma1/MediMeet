@@ -74,10 +74,13 @@ const appointmentCancel = async (req, res) => {
 // API for admin to add doctor
 const addDoctor = async (req, res) => {
     try {
-        const { name, email, password, phone, specialization, experience, fees, startTime, endTime } = req.body
+        console.log("Request body:", req.body);
+        console.log("Request file:", req.file);
+        
+        const { name, email, password, experience, fees, about, speciality, degree, address } = req.body
 
         // validations
-        if (!name || !email || !password || !phone || !specialization || !experience || !fees || !startTime || !endTime) {
+        if (!name || !email || !password || !experience || !fees || !about || !speciality || !degree || !address) {
             return res.json({ success: false, message: "All fields are required" })
         }
 
@@ -85,8 +88,18 @@ const addDoctor = async (req, res) => {
             return res.json({ success: false, message: "Invalid email" })
         }
 
-        if (!validator.isMobilePhone(phone)) {
-            return res.json({ success: false, message: "Invalid phone number" })
+        // Parse address if it's a string
+        let addressObj;
+        try {
+            addressObj = typeof address === 'string' ? JSON.parse(address) : address;
+        } catch (error) {
+            console.log("Error parsing address:", error);
+            return res.json({ success: false, message: "Invalid address format" });
+        }
+
+        // Validate address
+        if (!addressObj || !addressObj.line1 || !addressObj.line2) {
+            return res.json({ success: false, message: "Address is required with line1 and line2" });
         }
 
         // check if doctor already exists
@@ -106,6 +119,10 @@ const addDoctor = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt)
 
         // upload image to cloudinary
+        if (!req.file) {
+            return res.json({ success: false, message: "Doctor image is required" });
+        }
+        
         const result = await cloudinary.uploader.upload(req.file.path, {
             folder: "doctors",
         })
@@ -115,23 +132,21 @@ const addDoctor = async (req, res) => {
             name,
             email,
             password: hashedPassword,
-            phone,
-            specialization,
+            image: result.secure_url,
+            speciality,
+            degree,
             experience,
-            fees,
-            startTime,
-            endTime,
-            image: {
-                public_id: result.public_id,
-                url: result.secure_url
-            }
+            about,
+            fees: Number(fees),
+            address: addressObj,
+            date: Date.now(),
         })
 
         await doctor.save()
         res.json({ success: true, message: "Doctor added successfully" })
 
     } catch (error) {
-        console.log(error)
+        console.log("Error in addDoctor:", error)
         res.json({ success: false, message: error.message })
     }
 }
