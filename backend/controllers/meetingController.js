@@ -35,19 +35,36 @@ const createMeeting = async (req, res) => {
     try {
         const { appointmentId } = req.body;
         
+        if (!appointmentId) {
+            return res.status(400).json({ success: false, message: 'Appointment ID is required' });
+        }
+        
         // Find the appointment
         const appointment = await appointmentModel.findById(appointmentId);
         
         if (!appointment) {
-            return res.json({ success: false, message: 'Appointment not found' });
+            return res.status(404).json({ success: false, message: 'Appointment not found' });
         }
         
         if (appointment.cancelled) {
-            return res.json({ success: false, message: 'Appointment is cancelled' });
+            return res.status(400).json({ success: false, message: 'Appointment is cancelled' });
         }
         
         if (!appointment.payment) {
-            return res.json({ success: false, message: 'Payment not completed for this appointment' });
+            return res.status(400).json({ success: false, message: 'Payment not completed for this appointment' });
+        }
+        
+        if (appointment.isCompleted) {
+            return res.status(400).json({ success: false, message: 'Appointment is already completed' });
+        }
+        
+        // If meeting already exists, return the existing room name
+        if (appointment.meetingRoomName) {
+            return res.json({ 
+                success: true, 
+                message: 'Meeting already exists',
+                roomName: appointment.meetingRoomName
+            });
         }
         
         // Create a unique room name
@@ -64,8 +81,8 @@ const createMeeting = async (req, res) => {
         });
         
     } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
+        console.error('Error creating meeting:', error);
+        res.status(500).json({ success: false, message: 'Server error creating meeting' });
     }
 };
 
@@ -74,23 +91,35 @@ const joinMeeting = async (req, res) => {
     try {
         const { appointmentId, identity } = req.body;
         
+        if (!appointmentId || !identity) {
+            return res.status(400).json({ success: false, message: 'Appointment ID and identity are required' });
+        }
+        
         // Find the appointment
         const appointment = await appointmentModel.findById(appointmentId);
         
         if (!appointment) {
-            return res.json({ success: false, message: 'Appointment not found' });
+            return res.status(404).json({ success: false, message: 'Appointment not found' });
         }
         
         if (appointment.cancelled) {
-            return res.json({ success: false, message: 'Appointment is cancelled' });
+            return res.status(400).json({ success: false, message: 'Appointment is cancelled' });
         }
         
         if (!appointment.payment) {
-            return res.json({ success: false, message: 'Payment not completed for this appointment' });
+            return res.status(400).json({ success: false, message: 'Payment not completed for this appointment' });
         }
         
+        if (appointment.isCompleted) {
+            return res.status(400).json({ success: false, message: 'Appointment is already completed' });
+        }
+        
+        // If meeting room doesn't exist yet, create it
         if (!appointment.meetingRoomName) {
-            return res.json({ success: false, message: 'Meeting not created yet' });
+            // Create a unique room name
+            const roomName = `medimeet-${appointmentId}-${Date.now()}`;
+            appointment.meetingRoomName = roomName;
+            await appointment.save();
         }
         
         // Generate token for the participant
@@ -99,7 +128,16 @@ const joinMeeting = async (req, res) => {
         // If this is the doctor joining, mark the meeting as started
         if (identity.includes('doctor')) {
             appointment.meetingStarted = true;
-            appointment.meetingStartTime = new Date();
+            appointment.meetingJoinedByDoctor = true;
+            if (!appointment.meetingStartTime) {
+                appointment.meetingStartTime = new Date();
+            }
+            await appointment.save();
+        }
+        
+        // If this is the patient joining, mark that they joined
+        if (identity.includes('patient')) {
+            appointment.meetingJoinedByUser = true;
             await appointment.save();
         }
         
@@ -110,30 +148,43 @@ const joinMeeting = async (req, res) => {
         });
         
     } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
+        console.error('Error joining meeting:', error);
+        res.status(500).json({ success: false, message: 'Server error joining meeting' });
     }
 };
 
 // End a meeting
 const endMeeting = async (req, res) => {
     try {
-        const { appointmentId } = req.body;
+        const { appointmentId, notes } = req.body;
+        
+        if (!appointmentId) {
+            return res.status(400).json({ success: false, message: 'Appointment ID is required' });
+        }
         
         // Find the appointment
         const appointment = await appointmentModel.findById(appointmentId);
         
         if (!appointment) {
-            return res.json({ success: false, message: 'Appointment not found' });
+            return res.status(404).json({ success: false, message: 'Appointment not found' });
         }
         
         if (!appointment.meetingStarted) {
-            return res.json({ success: false, message: 'Meeting has not started yet' });
+            return res.status(400).json({ success: false, message: 'Meeting has not started yet' });
+        }
+        
+        if (appointment.meetingEnded) {
+            return res.status(400).json({ success: false, message: 'Meeting has already ended' });
         }
         
         // Mark meeting as ended
         appointment.meetingEnded = true;
         appointment.meetingEndTime = new Date();
+        
+        // Save meeting notes if provided
+        if (notes) {
+            appointment.meetingNotes = notes;
+        }
         
         // Calculate duration in minutes
         if (appointment.meetingStartTime) {
@@ -153,8 +204,8 @@ const endMeeting = async (req, res) => {
         });
         
     } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
+        console.error('Error ending meeting:', error);
+        res.status(500).json({ success: false, message: 'Server error ending meeting' });
     }
 };
 
@@ -163,11 +214,15 @@ const getMeetingStatus = async (req, res) => {
     try {
         const { appointmentId } = req.body;
         
+        if (!appointmentId) {
+            return res.status(400).json({ success: false, message: 'Appointment ID is required' });
+        }
+        
         // Find the appointment
         const appointment = await appointmentModel.findById(appointmentId);
         
         if (!appointment) {
-            return res.json({ success: false, message: 'Appointment not found' });
+            return res.status(404).json({ success: false, message: 'Appointment not found' });
         }
         
         res.json({ 
@@ -178,14 +233,49 @@ const getMeetingStatus = async (req, res) => {
                 ended: appointment.meetingEnded,
                 startTime: appointment.meetingStartTime,
                 endTime: appointment.meetingEndTime,
-                duration: appointment.meetingDuration
+                duration: appointment.meetingDuration,
+                isCompleted: appointment.isCompleted,
+                joinedByDoctor: appointment.meetingJoinedByDoctor,
+                joinedByUser: appointment.meetingJoinedByUser,
+                notes: appointment.meetingNotes
             }
         });
         
     } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
+        console.error('Error getting meeting status:', error);
+        res.status(500).json({ success: false, message: 'Server error getting meeting status' });
     }
 };
 
-export { createMeeting, joinMeeting, endMeeting, getMeetingStatus }; 
+// Add meeting notes
+const addMeetingNotes = async (req, res) => {
+    try {
+        const { appointmentId, notes } = req.body;
+        
+        if (!appointmentId || !notes) {
+            return res.status(400).json({ success: false, message: 'Appointment ID and notes are required' });
+        }
+        
+        // Find the appointment
+        const appointment = await appointmentModel.findById(appointmentId);
+        
+        if (!appointment) {
+            return res.status(404).json({ success: false, message: 'Appointment not found' });
+        }
+        
+        // Save meeting notes
+        appointment.meetingNotes = notes;
+        await appointment.save();
+        
+        res.json({ 
+            success: true, 
+            message: 'Meeting notes added successfully'
+        });
+        
+    } catch (error) {
+        console.error('Error adding meeting notes:', error);
+        res.status(500).json({ success: false, message: 'Server error adding meeting notes' });
+    }
+};
+
+export { createMeeting, joinMeeting, endMeeting, getMeetingStatus, addMeetingNotes }; 

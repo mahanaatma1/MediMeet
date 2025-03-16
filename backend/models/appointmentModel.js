@@ -8,6 +8,8 @@ const appointmentSchema = new mongoose.Schema({
     userData: { type: Object, required: true },
     docData: { type: Object, required: true },
     amount: { type: Number, required: true },
+    adminShare: { type: Number, default: 0 }, // 20% of amount goes to admin
+    doctorShare: { type: Number, default: 0 }, // 80% of amount goes to doctor
     date: { type: Number, required: true },
     cancelled: { type: Boolean, default: false },
     payment: { type: Boolean, default: false },
@@ -19,7 +21,11 @@ const appointmentSchema = new mongoose.Schema({
     meetingEnded: { type: Boolean, default: false },
     meetingStartTime: { type: Date, default: null },
     meetingEndTime: { type: Date, default: null },
-    meetingDuration: { type: Number, default: 0 } // in minutes
+    meetingDuration: { type: Number, default: 0 }, // in minutes
+    // Additional fields for better tracking
+    meetingJoinedByDoctor: { type: Boolean, default: false },
+    meetingJoinedByUser: { type: Boolean, default: false },
+    meetingNotes: { type: String, default: '' }
 })
 
 const appointmentModel = mongoose.models.appointment || mongoose.model("appointment", appointmentSchema)

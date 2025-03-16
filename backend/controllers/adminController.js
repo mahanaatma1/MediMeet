@@ -157,11 +157,63 @@ const adminDashboard = async (req, res) => {
         // Get latest appointments without using populate
         const latestAppointments = await appointmentModel.find().sort({ date: -1 }).limit(10);
         
+        // Calculate admin revenue (20% of all paid appointments)
+        const allAppointments = await appointmentModel.find({ payment: true });
+        let adminRevenue = 0;
+        
+        allAppointments.forEach(appointment => {
+            if (appointment.adminShare) {
+                adminRevenue += appointment.adminShare;
+            } else {
+                adminRevenue += Math.round(appointment.amount * 0.2);
+            }
+        });
+        
+        // Calculate total revenue
+        let totalRevenue = 0;
+        allAppointments.forEach(appointment => {
+            totalRevenue += appointment.amount;
+        });
+        
+        // Get system health data
+        // Count active users (users who have appointments in the last 30 days)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const recentAppointments = await appointmentModel.find({ date: { $gte: thirtyDaysAgo.getTime() } });
+        
+        // Get unique active users
+        const activeUserIds = new Set();
+        recentAppointments.forEach(appointment => {
+            activeUserIds.add(appointment.userId);
+        });
+        const activeUsers = activeUserIds.size;
+        
+        // Count pending appointments (not cancelled, not completed, payment done)
+        const pendingAppointments = await appointmentModel.countDocuments({ 
+            cancelled: false, 
+            isCompleted: false,
+            payment: true
+        });
+        
+        // Count completed appointments
+        const completedAppointments = await appointmentModel.countDocuments({ isCompleted: true });
+        
+        // Calculate server uptime (simulated - in a real app, you would get this from your monitoring system)
+        const serverUptime = 99.9; // Percentage
+        
         const dashData = {
             patients: users,
             doctors: doctors,
             appointments: appointmentsCount,
-            latestAppointments: latestAppointments
+            adminRevenue: adminRevenue,
+            totalRevenue: totalRevenue,
+            latestAppointments: latestAppointments,
+            // System health data
+            activeUsers: activeUsers,
+            pendingAppointments: pendingAppointments,
+            completedAppointments: completedAppointments,
+            serverUptime: serverUptime,
+            systemLoad: Math.floor(Math.random() * 30) + 10 // Simulated system load (10-40%)
         };
         
         res.json({ success: true, dashData });

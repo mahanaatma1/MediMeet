@@ -1,5 +1,5 @@
 import express from 'express';
-import { createMeeting, joinMeeting, endMeeting, getMeetingStatus } from '../controllers/meetingController.js';
+import { createMeeting, joinMeeting, endMeeting, getMeetingStatus, addMeetingNotes } from '../controllers/meetingController.js';
 import authUser from '../middleware/authUser.js';
 import authDoctor from '../middleware/authDoctor.js';
 
@@ -12,5 +12,6 @@ meetingRouter.post('/status', getMeetingStatus);
 // Routes for doctor only
 meetingRouter.post('/create', authDoctor, createMeeting);
 meetingRouter.post('/end', authDoctor, endMeeting);
+meetingRouter.post('/notes', authDoctor, addMeetingNotes);
 
 export default meetingRouter; 

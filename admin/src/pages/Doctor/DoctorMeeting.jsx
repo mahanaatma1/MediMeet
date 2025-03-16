@@ -12,6 +12,7 @@ const DoctorMeeting = () => {
   const { dToken } = useContext(DoctorContext);
   const [appointment, setAppointment] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [meetingStarted, setMeetingStarted] = useState(false);
   const navigate = useNavigate();
 
@@ -28,8 +29,9 @@ const DoctorMeeting = () => {
       );
 
       if (!data.success) {
+        setError(data.message || 'Failed to get meeting status');
         toast.error(data.message || 'Failed to get meeting status');
-        navigate('/doctor/appointments');
+        setLoading(false);
         return;
       }
 
@@ -40,8 +42,9 @@ const DoctorMeeting = () => {
       );
 
       if (!appointmentsResponse.data.success) {
+        setError('Failed to get appointments');
         toast.error('Failed to get appointments');
-        navigate('/doctor/appointments');
+        setLoading(false);
         return;
       }
 
@@ -51,38 +54,48 @@ const DoctorMeeting = () => {
       );
 
       if (!appointmentData) {
+        setError('Appointment not found');
         toast.error('Appointment not found');
-        navigate('/doctor/appointments');
+        setLoading(false);
         return;
       }
 
       // Check if payment is completed
       if (!appointmentData.payment) {
+        setError('Payment not completed for this appointment');
         toast.error('Payment not completed for this appointment');
-        navigate('/doctor/appointments');
+        setLoading(false);
         return;
       }
 
       // Check if appointment is cancelled
       if (appointmentData.cancelled) {
+        setError('This appointment has been cancelled');
         toast.error('This appointment has been cancelled');
-        navigate('/doctor/appointments');
+        setLoading(false);
         return;
       }
 
       // Check if appointment is completed
       if (appointmentData.isCompleted) {
+        setError('This appointment has been completed');
         toast.error('This appointment has been completed');
-        navigate('/doctor/appointments');
+        setLoading(false);
         return;
+      }
+
+      // Check if meeting room already exists
+      if (appointmentData.meetingRoomName) {
+        setMeetingStarted(true);
       }
 
       setAppointment(appointmentData);
       setLoading(false);
     } catch (error) {
       console.error('Error getting appointment details:', error);
+      setError('Failed to get appointment details');
       toast.error('Failed to get appointment details');
-      navigate('/doctor/appointments');
+      setLoading(false);
     }
   };
 
@@ -96,6 +109,7 @@ const DoctorMeeting = () => {
       );
 
       if (!data.success) {
+        setError(data.message || 'Failed to create meeting');
         toast.error(data.message || 'Failed to create meeting');
         return;
       }
@@ -104,6 +118,7 @@ const DoctorMeeting = () => {
       setMeetingStarted(true);
     } catch (error) {
       console.error('Error creating meeting:', error);
+      setError('Failed to create meeting');
       toast.error('Failed to create meeting');
     }
   };
@@ -123,6 +138,21 @@ const DoctorMeeting = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="text-red-500 text-xl mb-4">⚠️ Error</div>
+        <p className="text-gray-700 mb-6">{error}</p>
+        <button 
+          onClick={() => navigate('/doctor-appointments')}
+          className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
+        >
+          Back to Appointments
+        </button>
+      </div>
+    );
+  }
+
   if (!meetingStarted) {
     return (
       <div className="w-full max-w-6xl m-5">
@@ -138,11 +168,23 @@ const DoctorMeeting = () => {
               <p className="text-gray-600">Date & Time:</p>
               <p className="font-medium">{appointment?.slotDate?.split('_').join('/')} | {appointment?.slotTime}</p>
             </div>
+            <div>
+              <p className="text-gray-600">Reason for Visit:</p>
+              <p className="font-medium">{appointment?.reason || 'Not specified'}</p>
+            </div>
+            <div>
+              <p className="text-gray-600">Status:</p>
+              <p className="font-medium">
+                <span className="inline-block px-2 py-1 bg-green-100 text-green-800 rounded-full">
+                  Ready for consultation
+                </span>
+              </p>
+            </div>
           </div>
           
           <button
             onClick={createMeeting}
-            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
+            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
           >
             Start Video Consultation
           </button>
@@ -158,6 +200,9 @@ const DoctorMeeting = () => {
         <p className="text-gray-600">
           Appointment with {appointment?.userData?.name}
         </p>
+        <p className="text-gray-600">
+          Date: {appointment?.slotDate?.split('_').join('/')} | Time: {appointment?.slotTime}
+        </p>
       </div>
 
       <VideoMeeting
@@ -165,7 +210,7 @@ const DoctorMeeting = () => {
         isDoctor={true}
         backendUrl={backendUrl}
         dtoken={dToken}
-        onEndMeeting={() => navigate('/doctor/appointments')}
+        onEndMeeting={() => navigate('/doctor-appointments')}
       />
     </div>
   );

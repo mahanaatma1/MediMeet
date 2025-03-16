@@ -273,7 +273,19 @@ const verifyRazorpay = async (req, res) => {
         const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id)
 
         if (orderInfo.status === 'paid') {
-            await appointmentModel.findByIdAndUpdate(orderInfo.receipt, { payment: true })
+            const appointmentId = orderInfo.receipt;
+            const appointmentData = await appointmentModel.findById(appointmentId);
+            
+            // Calculate revenue shares (20% admin, 80% doctor)
+            const adminShare = Math.round(appointmentData.amount * 0.2);
+            const doctorShare = appointmentData.amount - adminShare;
+            
+            await appointmentModel.findByIdAndUpdate(appointmentId, { 
+                payment: true,
+                adminShare: adminShare,
+                doctorShare: doctorShare
+            });
+            
             res.json({ success: true, message: "Payment Successful" })
         }
         else {
@@ -335,7 +347,18 @@ const verifyStripe = async (req, res) => {
         const { appointmentId, success } = req.body;
 
         if (success === "true") {
-            await appointmentModel.findByIdAndUpdate(appointmentId, { payment: true });
+            const appointmentData = await appointmentModel.findById(appointmentId);
+            
+            // Calculate revenue shares (20% admin, 80% doctor)
+            const adminShare = Math.round(appointmentData.amount * 0.2);
+            const doctorShare = appointmentData.amount - adminShare;
+            
+            await appointmentModel.findByIdAndUpdate(appointmentId, { 
+                payment: true,
+                adminShare: adminShare,
+                doctorShare: doctorShare
+            });
+            
             return res.json({ success: true, message: 'Payment Successful' });
         }
 
@@ -449,10 +472,10 @@ const submitJobApplication = async (req, res) => {
 // Get user's job applications
 const getUserApplications = async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.body.userId;
         
-        const applications = await jobApplicationModel.find({ user: userId })
-            .populate('job')
+        const applications = await jobApplicationModel.find({ userId: userId })
+            .populate('jobId')
             .sort({ createdAt: -1 });
         
         return res.json({
@@ -493,7 +516,7 @@ const completeAppointment = async (req, res) => {
         }
         
         // Check if the appointment belongs to the user
-        if (appointment.user.toString() !== req.user.id) {
+        if (appointment.user.toString() !== userId) {
             return res.status(403).json({
                 success: false,
                 message: 'You are not authorized to complete this appointment'

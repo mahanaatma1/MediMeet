@@ -161,7 +161,12 @@ const doctorDashboard = async (req, res) => {
 
         appointments.map((item) => {
             if (item.isCompleted || item.payment) {
-                earnings += item.amount
+                // Use doctorShare if available, otherwise calculate 80% of amount
+                if (item.doctorShare) {
+                    earnings += item.doctorShare;
+                } else {
+                    earnings += Math.round(item.amount * 0.8);
+                }
             }
         })
 
