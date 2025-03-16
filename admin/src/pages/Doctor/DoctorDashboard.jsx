@@ -5,10 +5,11 @@ import { AppContext } from '../../context/AppContext'
 import { useNavigate } from 'react-router-dom'
 
 const DoctorDashboard = () => {
-  const { dToken, dashData, getDashData, cancelAppointment, completeAppointment } = useContext(DoctorContext)
+  const { dToken, dashData, getDashData } = useContext(DoctorContext)
   const { slotDateFormat, currency } = useContext(AppContext)
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(true)
+  const [currentTime, setCurrentTime] = useState(new Date())
 
   useEffect(() => {
     if (dToken) {
@@ -19,18 +20,18 @@ const DoctorDashboard = () => {
     }
   }, [dToken])
 
-  // Handle appointment cancellation with confirmation
-  const handleCancelAppointment = (id) => {
-    if (window.confirm('Are you sure you want to cancel this appointment?')) {
-      cancelAppointment(id)
-    }
-  }
-  
-  // Handle appointment completion with confirmation
-  const handleCompleteAppointment = (id) => {
-    if (window.confirm('Are you sure you want to mark this appointment as completed?')) {
-      completeAppointment(id)
-    }
+  // Update current time more frequently for accurate time checks
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000); // Update every second
+    
+    return () => clearInterval(timer);
+  }, []);
+
+  // Function to navigate to appointments page
+  const goToAppointments = () => {
+    navigate('/doctor-appointments');
   }
 
   if (isLoading) {
@@ -145,80 +146,59 @@ const DoctorDashboard = () => {
             No appointments found
           </div>
         ) : (
-          <div className='divide-y'>
-            {dashData.latestAppointments.slice(0, 5).map((item, index) => (
-              <div className='p-4 sm:px-6 hover:bg-gray-50 transition-colors' key={index}>
-                <div className='flex flex-col sm:flex-row sm:items-center gap-4'>
-                  {/* Patient Info */}
-                  <div className='flex items-center flex-1 gap-3'>
-                    <img 
-                      className='w-12 h-12 rounded-full object-cover border' 
-                      src={item.userData.image} 
-                      alt={item.userData.name} 
-                    />
-                    <div>
-                      <p className='font-medium text-gray-800'>{item.userData.name}</p>
-                      <div className='flex items-center gap-2 mt-1'>
-                        <span className='text-xs text-gray-500'>
-                          {slotDateFormat(item.slotDate)}, {item.slotTime}
-                        </span>
-                        <span className={`inline-flex px-2 py-0.5 text-xs rounded-full ${
-                          item.cancelled ? 'bg-red-100 text-red-800' : 
-                          item.isCompleted ? 'bg-green-100 text-green-800' : 
-                          'bg-blue-100 text-blue-800'
-                        }`}>
-                          {item.cancelled ? 'Cancelled' : item.isCompleted ? 'Completed' : 'Upcoming'}
-                        </span>
+          <>
+            <div className='divide-y'>
+              {dashData.latestAppointments.slice(0, 5).map((item, index) => (
+                <div className='p-4 sm:px-6 hover:bg-gray-50 transition-colors' key={index}>
+                  <div className='flex flex-col sm:flex-row sm:items-center gap-4'>
+                    {/* Patient Info */}
+                    <div className='flex items-center flex-1 gap-3'>
+                      <img 
+                        className='w-12 h-12 rounded-full object-cover border' 
+                        src={item.userData.image} 
+                        alt={item.userData.name} 
+                      />
+                      <div>
+                        <p className='font-medium text-gray-800'>{item.userData.name}</p>
+                        <div className='flex items-center gap-2 mt-1'>
+                          <span className='text-xs text-gray-500'>
+                            {slotDateFormat(item.slotDate)}, {item.slotTime}
+                          </span>
+                          <span className={`inline-flex px-2 py-0.5 text-xs rounded-full ${
+                            item.cancelled ? 'bg-red-100 text-red-800' : 
+                            item.isCompleted ? 'bg-green-100 text-green-800' : 
+                            'bg-blue-100 text-blue-800'
+                          }`}>
+                            {item.cancelled ? 'Cancelled' : item.isCompleted ? 'Completed' : 'Upcoming'}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  
-                  {/* Payment Info */}
-                  <div className='flex items-center gap-2 sm:gap-4'>
-                    <div className='text-right'>
-                      <p className='font-medium text-gray-800'>{currency}{item.amount}</p>
-                      <p className='text-xs text-gray-500'>{item.payment ? 'Paid Online' : 'Cash Payment'}</p>
                     </div>
                     
-                    {/* Actions */}
-                    {!item.cancelled && !item.isCompleted && (
-                      <div className='flex space-x-2'>
-                        {item.payment && (
-                          <button 
-                            onClick={() => navigate(`/doctor-meeting/${item._id}`)}
-                            className='p-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors'
-                            title="Start Meeting"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                          </button>
-                        )}
-                        <button 
-                          onClick={() => handleCompleteAppointment(item._id)} 
-                          className="p-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
-                          title="Mark as completed"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </button>
-                        <button 
-                          onClick={() => handleCancelAppointment(item._id)} 
-                          className="p-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
-                          title="Cancel appointment"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
+                    {/* Payment Info */}
+                    <div className='flex items-center gap-2 sm:gap-4'>
+                      <div className='text-right'>
+                        <p className='font-medium text-gray-800'>{currency}{item.amount}</p>
+                        <p className='text-xs text-gray-500'>{item.payment ? 'Paid Online' : 'Cash Payment'}</p>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            {/* Note about managing appointments */}
+            <div className='p-4 bg-gray-50 border-t text-center'>
+              <p className='text-sm text-gray-600'>
+                To manage appointments (join meetings, mark as completed, or cancel), please visit the{' '}
+                <button 
+                  onClick={() => navigate('/doctor-appointments')}
+                  className='text-primary hover:text-primary-dark font-medium transition-colors'
+                >
+                  Appointments page
+                </button>
+              </p>
+            </div>
+          </>
         )}
       </div>
     </div>
