@@ -9,6 +9,8 @@ import stripe from "stripe";
 import razorpay from 'razorpay';
 import Job from '../models/jobModel.js';
 import jobApplicationModel from '../models/jobApplicationModel.js';
+import { sendEmail, sendVerificationEmail } from '../utils/sendEmail.js';
+import { getPasswordResetTemplate, getVerificationEmailTemplate } from '../utils/emailTemplates.js';
 
 // Gateway Initialize
 const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY)
@@ -17,151 +19,270 @@ const razorpayInstance = new razorpay({
     key_secret: process.env.RAZORPAY_KEY_SECRET
 })
 
+// Generate verification code
+const generateVerificationCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString()
+}
+
+// Generate JWT token
+const generateToken = (user) => {
+    return jwt.sign(
+        { id: user._id, email: user.email, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: '30d' }
+    )
+}
+
 // API to register user
 const registerUser = async (req, res) => {
-
     try {
         const { name, email, password } = req.body;
 
-        // checking for all data to register user
-        if (!name || !email || !password) {
-            return res.json({ success: false, message: 'Missing Details' })
+        // Check if user exists
+        const userExists = await userModel.findOne({ email });
+        if (userExists) {
+            return res.json({ success: false, message: 'Email already registered' });
         }
 
-        // validating email format
-        if (!validator.isEmail(email)) {
-            return res.json({ success: false, message: "Please enter a valid email" })
-        }
+        // Hash password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
 
-        // validating strong password
-        if (password.length < 8) {
-            return res.json({ success: false, message: "Please enter a strong password" })
-        }
+        // Generate verification code
+        const verificationCode = generateVerificationCode();
+        const verificationExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-        // hashing user password
-        const salt = await bcrypt.genSalt(10); // the more no. round the more time it will take
-        const hashedPassword = await bcrypt.hash(password, salt)
-
+        // Create user
         const userData = {
             name,
             email,
             password: hashedPassword,
+            verificationCode,
+            verificationExpires
+        };
+
+        const newUser = new userModel(userData);
+        const user = await newUser.save();
+
+        // Send verification email (simplified)
+        const emailSent = await sendVerificationEmail(email, verificationCode);
+        
+        if (!emailSent) {
+            return res.json({ success: false, message: 'Failed to send verification email' });
         }
 
-        const newUser = new userModel(userData)
-        const user = await newUser.save()
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET)
-
-        res.json({ success: true, token })
-
+        res.json({ success: true, message: 'Registration successful. Please check your email for verification.' });
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.error('Registration error:', error);
+        res.json({ success: false, message: 'Registration failed' });
     }
-}
+};
 
 // API to login user
 const loginUser = async (req, res) => {
-
     try {
         const { email, password } = req.body;
-        const user = await userModel.findOne({ email })
+        const user = await userModel.findOne({ email });
 
         if (!user) {
-            return res.json({ success: false, message: "User does not exist" })
+            return res.json({ success: false, message: 'Invalid credentials' });
         }
 
-        const isMatch = await bcrypt.compare(password, user.password)
+        // Check password
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.json({ success: false, message: 'Invalid credentials' });
+        }
 
-        if (isMatch) {
-            const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET)
-            res.json({ success: true, token })
+        // Check if user is verified
+        if (!user.isVerified) {
+            // Generate new verification code
+            const verificationCode = generateVerificationCode();
+            const verificationExpires = new Date(Date.now() + 10 * 60 * 1000);
+
+            user.verificationCode = verificationCode;
+            user.verificationExpires = verificationExpires;
+            await user.save();
+
+            // Send new verification email (simplified)
+            await sendVerificationEmail(email, verificationCode);
+
+            return res.json({
+                success: true,
+                isVerified: false,
+                message: 'Please verify your email'
+            });
         }
-        else {
-            res.json({ success: false, message: "Invalid credentials" })
-        }
+
+        // Generate token
+        const token = generateToken(user);
+
+        res.json({
+            success: true,
+            isVerified: true,
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                image: user.image
+            }
+        });
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.error('Login error:', error);
+        res.json({ success: false, message: 'Login failed' });
     }
-}
+};
+
+// API to verify email
+const verifyEmail = async (req, res) => {
+    try {
+        const { email, code } = req.body;
+
+        // Find user
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            return res.json({ success: false, message: 'User not found' });
+        }
+
+        // Check if code is valid and not expired
+        if (user.verificationCode !== code) {
+            return res.json({ success: false, message: 'Invalid verification code' });
+        }
+
+        if (user.verificationExpires < Date.now()) {
+            return res.json({ success: false, message: 'Verification code has expired' });
+        }
+
+        // Update user
+        user.isVerified = true;
+        user.verificationCode = null;
+        user.verificationExpires = null;
+        await user.save();
+
+        // Generate token for auto-login
+        const token = generateToken(user);
+
+        res.json({
+            success: true,
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                image: user.image
+            }
+        });
+    } catch (error) {
+        console.error('Verification error:', error);
+        res.json({ success: false, message: 'Verification failed' });
+    }
+};
+
+// API to resend verification code
+const resendVerification = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        // Find user
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            return res.json({ success: false, message: 'User not found' });
+        }
+
+        // Generate new verification code
+        const verificationCode = generateVerificationCode();
+        const verificationExpires = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Update user
+        user.verificationCode = verificationCode;
+        user.verificationExpires = verificationExpires;
+        await user.save();
+
+        // Send verification email (simplified)
+        const emailSent = await sendVerificationEmail(email, verificationCode);
+        
+        if (!emailSent) {
+            return res.json({ success: false, message: 'Failed to send verification email' });
+        }
+
+        res.json({ success: true, message: 'Verification code sent' });
+    } catch (error) {
+        console.error('Resend verification error:', error);
+        res.json({ success: false, message: 'Failed to resend verification code' });
+    }
+};
 
 // API to get user profile data
 const getProfile = async (req, res) => {
-
     try {
-        const { userId } = req.body
-        const userData = await userModel.findById(userId).select('-password')
+        const { userId } = req.body;
+        const userData = await userModel.findById(userId).select('-password');
 
-        res.json({ success: true, userData })
-
+        res.json({ success: true, userData });
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.log(error);
+        res.json({ success: false, message: error.message });
     }
-}
+};
 
 // API to update user profile
 const updateProfile = async (req, res) => {
-
     try {
-
-        const { userId, name, phone, address, dob, gender } = req.body
-        const imageFile = req.file
+        const { userId, name, phone, address, dob, gender } = req.body;
+        const imageFile = req.file;
 
         if (!name || !phone || !dob || !gender) {
-            return res.json({ success: false, message: "Data Missing" })
+            return res.json({ success: false, message: "Data Missing" });
         }
 
-        await userModel.findByIdAndUpdate(userId, { name, phone, address: JSON.parse(address), dob, gender })
+        await userModel.findByIdAndUpdate(userId, { name, phone, address: JSON.parse(address), dob, gender });
 
         if (imageFile) {
-
             // upload image to cloudinary
-            const imageUpload = await cloudinary.uploader.upload(imageFile.path, { resource_type: "image" })
-            const imageURL = imageUpload.secure_url
+            const imageUpload = await cloudinary.uploader.upload(imageFile.path, { resource_type: "image" });
+            const imageURL = imageUpload.secure_url;
 
-            await userModel.findByIdAndUpdate(userId, { image: imageURL })
+            await userModel.findByIdAndUpdate(userId, { image: imageURL });
         }
 
-        res.json({ success: true, message: 'Profile Updated' })
-
+        res.json({ success: true, message: 'Profile Updated' });
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.log(error);
+        res.json({ success: false, message: error.message });
     }
-}
+};
 
 // API to book appointment
 const bookAppointment = async (req, res) => {
-
     try {
-
-        const { userId, docId, slotDate, slotTime } = req.body
-        const docData = await doctorModel.findById(docId).select("-password")
+        const { userId, docId, slotDate, slotTime } = req.body;
+        const docData = await doctorModel.findById(docId).select("-password");
 
         if (!docData.available) {
-            return res.json({ success: false, message: 'Doctor Not Available' })
+            return res.json({ success: false, message: 'Doctor Not Available' });
         }
 
-        let slots_booked = docData.slots_booked
+        let slots_booked = docData.slots_booked;
 
         // checking for slot availablity 
         if (slots_booked[slotDate]) {
             if (slots_booked[slotDate].includes(slotTime)) {
-                return res.json({ success: false, message: 'Slot Not Available' })
+                return res.json({ success: false, message: 'Slot Not Available' });
             }
             else {
-                slots_booked[slotDate].push(slotTime)
+                slots_booked[slotDate].push(slotTime);
             }
         } else {
-            slots_booked[slotDate] = []
-            slots_booked[slotDate].push(slotTime)
+            slots_booked[slotDate] = [];
+            slots_booked[slotDate].push(slotTime);
         }
 
-        const userData = await userModel.findById(userId).select("-password")
+        const userData = await userModel.findById(userId).select("-password");
 
-        delete docData.slots_booked
+        delete docData.slots_booked;
 
         const appointmentData = {
             userId,
@@ -172,80 +293,73 @@ const bookAppointment = async (req, res) => {
             slotTime,
             slotDate,
             date: Date.now()
-        }
+        };
 
-        const newAppointment = new appointmentModel(appointmentData)
-        await newAppointment.save()
+        const newAppointment = new appointmentModel(appointmentData);
+        await newAppointment.save();
 
         // save new slots data in docData
-        await doctorModel.findByIdAndUpdate(docId, { slots_booked })
+        await doctorModel.findByIdAndUpdate(docId, { slots_booked });
 
-        res.json({ success: true, message: 'Appointment Booked' })
-
+        res.json({ success: true, message: 'Appointment Booked' });
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.log(error);
+        res.json({ success: false, message: error.message });
     }
-
-}
+};
 
 // API to cancel appointment
 const cancelAppointment = async (req, res) => {
     try {
-
-        const { userId, appointmentId } = req.body
-        const appointmentData = await appointmentModel.findById(appointmentId)
+        const { userId, appointmentId } = req.body;
+        const appointmentData = await appointmentModel.findById(appointmentId);
 
         // verify appointment user 
         if (appointmentData.userId !== userId) {
-            return res.json({ success: false, message: 'Unauthorized action' })
+            return res.json({ success: false, message: 'Unauthorized action' });
         }
 
-        await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
+        await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true });
 
         // releasing doctor slot 
-        const { docId, slotDate, slotTime } = appointmentData
+        const { docId, slotDate, slotTime } = appointmentData;
 
-        const doctorData = await doctorModel.findById(docId)
+        const doctorData = await doctorModel.findById(docId);
 
-        let slots_booked = doctorData.slots_booked
+        let slots_booked = doctorData.slots_booked;
 
-        slots_booked[slotDate] = slots_booked[slotDate].filter(e => e !== slotTime)
+        slots_booked[slotDate] = slots_booked[slotDate].filter(e => e !== slotTime);
 
-        await doctorModel.findByIdAndUpdate(docId, { slots_booked })
+        await doctorModel.findByIdAndUpdate(docId, { slots_booked });
 
-        res.json({ success: true, message: 'Appointment Cancelled' })
-
+        res.json({ success: true, message: 'Appointment Cancelled' });
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.log(error);
+        res.json({ success: false, message: error.message });
     }
-}
+};
 
 // API to get user appointments for frontend my-appointments page
 const listAppointment = async (req, res) => {
     try {
+        const { userId } = req.body;
+        const appointments = await appointmentModel.find({ userId });
 
-        const { userId } = req.body
-        const appointments = await appointmentModel.find({ userId })
-
-        res.json({ success: true, appointments })
-
+        res.json({ success: true, appointments });
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.log(error);
+        res.json({ success: false, message: error.message });
     }
-}
+};
 
 // API to make payment of appointment using razorpay
 const paymentRazorpay = async (req, res) => {
     try {
-
-        const { appointmentId } = req.body
-        const appointmentData = await appointmentModel.findById(appointmentId)
+        const { appointmentId } = req.body;
+        const appointmentData = await appointmentModel.findById(appointmentId);
 
         if (!appointmentData || appointmentData.cancelled) {
-            return res.json({ success: false, message: 'Appointment Cancelled or not found' })
+            return res.json({ success: false, message: 'Appointment Cancelled or not found' });
         }
 
         // creating options for razorpay payment
@@ -253,24 +367,23 @@ const paymentRazorpay = async (req, res) => {
             amount: appointmentData.amount * 100,
             currency: process.env.CURRENCY,
             receipt: appointmentId,
-        }
+        };
 
         // creation of an order
-        const order = await razorpayInstance.orders.create(options)
+        const order = await razorpayInstance.orders.create(options);
 
-        res.json({ success: true, order })
-
+        res.json({ success: true, order });
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.log(error);
+        res.json({ success: false, message: error.message });
     }
-}
+};
 
 // API to verify payment of razorpay
 const verifyRazorpay = async (req, res) => {
     try {
-        const { razorpay_order_id } = req.body
-        const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id)
+        const { razorpay_order_id } = req.body;
+        const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id);
 
         if (orderInfo.status === 'paid') {
             const appointmentId = orderInfo.receipt;
@@ -286,18 +399,17 @@ const verifyRazorpay = async (req, res) => {
                 doctorShare: doctorShare
             });
             
-            res.json({ success: true, message: "Payment Successful" })
+            res.json({ success: true, message: "Payment Successful" });
         }
         else {
-            res.json({ success: false, message: 'Payment Failed' })
+            res.json({ success: false, message: 'Payment Failed' });
         }
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.log(error);
+        res.json({ success: false, message: error.message });
     }
-}
+};
 
-// API to make payment of appointment using Stripe
 // API to make payment of appointment using Stripe
 const paymentStripe = async (req, res) => {
     try {
@@ -335,7 +447,6 @@ const paymentStripe = async (req, res) => {
         });
 
         res.json({ success: true, session_url: session.url });
-
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -363,7 +474,6 @@ const verifyStripe = async (req, res) => {
         }
 
         res.json({ success: false, message: 'Payment Failed' });
-
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -372,101 +482,101 @@ const verifyStripe = async (req, res) => {
 
 // Get active jobs for users
 const getActiveJobs = async (req, res) => {
-  try {
-    const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
-    res.status(200).json({ success: true, jobs });
-  } catch (error) {
-    console.error("Error getting active jobs:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
+    try {
+        const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
+        res.status(200).json({ success: true, jobs });
+    } catch (error) {
+        console.error("Error getting active jobs:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
 };
 
 // Check if user has already applied for a job
 const checkJobApplication = async (req, res) => {
-  try {
-    const { jobId } = req.params;
-    const { userId } = req.body;
+    try {
+        const { jobId } = req.params;
+        const { userId } = req.body;
 
-    const existingApplication = await jobApplicationModel.findOne({ userId, jobId });
-    
-    if (existingApplication) {
-      return res.json({ 
-        success: true, 
-        hasApplied: true,
-        message: "You have already applied for this position"
-      });
+        const existingApplication = await jobApplicationModel.findOne({ userId, jobId });
+        
+        if (existingApplication) {
+            return res.json({ 
+                success: true, 
+                hasApplied: true,
+                message: "You have already applied for this position"
+            });
+        }
+
+        res.json({ 
+            success: true, 
+            hasApplied: false,
+            message: "You can apply for this position"
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
-
-    res.json({ 
-      success: true, 
-      hasApplied: false,
-      message: "You can apply for this position"
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
 };
 
 // Submit a job application
 const submitJobApplication = async (req, res) => {
-  try {
-    // The userId should come from the auth middleware, but we'll also check the form data as a fallback
-    // This ensures we're using the authenticated user's ID for security
-    const userId = req.body.userId; // This comes from the authUser middleware
-    const { jobId, fullName, email, phone, address, experience, education, coverLetter } = req.body;
-    const resumeFile = req.file;
+    try {
+        // The userId should come from the auth middleware, but we'll also check the form data as a fallback
+        // This ensures we're using the authenticated user's ID for security
+        const userId = req.body.userId; // This comes from the authUser middleware
+        const { jobId, fullName, email, phone, address, experience, education, coverLetter } = req.body;
+        const resumeFile = req.file;
 
-    // upload image to cloudinary
-    const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: "doctors",
-    })
+        // upload image to cloudinary
+        const result = await cloudinary.uploader.upload(req.file.path, {
+            folder: "doctors",
+        })
 
-    // Validate required fields
-    if (!userId || !fullName || !email || !phone || !address || !experience || !education || !resumeFile) {
-      return res.status(400).json({ success: false, message: "All fields are required" });
+        // Validate required fields
+        if (!userId || !fullName || !email || !phone || !address || !experience || !education || !resumeFile) {
+            return res.status(400).json({ success: false, message: "All fields are required" });
+        }
+
+        // Ensure jobId is available
+        const actualJobId = jobId || req.params.jobId;
+        if (!actualJobId) {
+            return res.status(400).json({ success: false, message: "Job ID is required" });
+        }
+
+        // Check if user has already applied
+        const existingApplication = await jobApplicationModel.findOne({ userId, jobId: actualJobId });
+        if (existingApplication) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "You have already applied for this position" 
+            });
+        }
+
+        // Save resume file locally
+        const resumeUrl = `/uploads/${resumeFile.filename}`;
+
+        // Create new application
+        const application = new jobApplicationModel({
+            userId,
+            jobId: actualJobId,
+            fullName,
+            email,
+            phone,
+            address,
+            experience,
+            education,
+            resumeUrl,
+            coverLetter: coverLetter || ""
+        });
+
+        await application.save();
+        res.status(201).json({ 
+            success: true, 
+            message: "Application submitted successfully" 
+        });
+    } catch (error) {
+        console.error("Job application error:", error);
+        res.status(500).json({ success: false, message: error.message });
     }
-
-    // Ensure jobId is available
-    const actualJobId = jobId || req.params.jobId;
-    if (!actualJobId) {
-      return res.status(400).json({ success: false, message: "Job ID is required" });
-    }
-
-    // Check if user has already applied
-    const existingApplication = await jobApplicationModel.findOne({ userId, jobId: actualJobId });
-    if (existingApplication) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "You have already applied for this position" 
-      });
-    }
-
-    // Save resume file locally
-    const resumeUrl = `/uploads/${resumeFile.filename}`;
-
-    // Create new application
-    const application = new jobApplicationModel({
-      userId,
-      jobId: actualJobId,
-      fullName,
-      email,
-      phone,
-      address,
-      experience,
-      education,
-      resumeUrl,
-      coverLetter: coverLetter || ""
-    });
-
-    await application.save();
-    res.status(201).json({ 
-      success: true, 
-      message: "Application submitted successfully" 
-    });
-  } catch (error) {
-    console.error("Job application error:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
 };
 
 // Get user's job applications
@@ -564,9 +674,163 @@ const completeAppointment = async (req, res) => {
     }
 };
 
+// API for Google authentication
+const googleAuth = async (req, res) => {
+    try {
+        const { name, email, image } = req.body;
+
+        // Find or create user
+        let user = await userModel.findOne({ email });
+
+        if (!user) {
+            user = await userModel.create({
+                name,
+                email,
+                password: await bcrypt.hash(Math.random().toString(36), 10),
+                image,
+                isVerified: true // Google users are automatically verified
+            });
+        }
+
+        // Generate token
+        const token = generateToken(user);
+
+        res.json({
+            success: true,
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                image: user.image
+            }
+        });
+    } catch (error) {
+        console.error('Google auth error:', error);
+        res.json({ success: false, message: 'Authentication failed' });
+    }
+};
+
+// Add these functions after the resendVerification function
+
+const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'Email is required' });
+        }
+
+        // Check if user exists
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Generate verification code
+        const resetCode = generateVerificationCode();
+        
+        // Set expiry time (30 minutes)
+        const resetCodeExpiry = new Date();
+        resetCodeExpiry.setMinutes(resetCodeExpiry.getMinutes() + 30);
+        
+        // Save reset code to user
+        user.resetPasswordCode = resetCode;
+        user.resetPasswordExpiry = resetCodeExpiry;
+        await user.save();
+        
+        // Send email with reset code
+        const subject = 'MediMeet Password Reset';
+        const emailContent = getPasswordResetTemplate(resetCode);
+        const emailSent = await sendEmail(email, subject, emailContent);
+        
+        if (!emailSent) {
+            return res.status(500).json({ success: false, message: 'Failed to send reset code email' });
+        }
+        
+        return res.status(200).json({ success: true, message: 'Reset code sent to your email' });
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+const verifyResetCode = async (req, res) => {
+    try {
+        const { email, code } = req.body;
+        
+        if (!email || !code) {
+            return res.status(400).json({ success: false, message: 'Email and code are required' });
+        }
+        
+        // Find user
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        
+        // Check if reset code exists and is valid
+        if (!user.resetPasswordCode || user.resetPasswordCode !== code) {
+            return res.status(400).json({ success: false, message: 'Invalid reset code' });
+        }
+        
+        // Check if code is expired
+        if (user.resetPasswordExpiry < new Date()) {
+            return res.status(400).json({ success: false, message: 'Reset code has expired' });
+        }
+        
+        return res.status(200).json({ success: true, message: 'Reset code verified successfully' });
+    } catch (error) {
+        console.error('Verify reset code error:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+const resetPassword = async (req, res) => {
+    try {
+        const { email, code, newPassword } = req.body;
+        
+        if (!email || !code || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Email, code and new password are required' });
+        }
+        
+        // Find user
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        
+        // Check if reset code exists and is valid
+        if (!user.resetPasswordCode || user.resetPasswordCode !== code) {
+            return res.status(400).json({ success: false, message: 'Invalid reset code' });
+        }
+        
+        // Check if code is expired
+        if (user.resetPasswordExpiry < new Date()) {
+            return res.status(400).json({ success: false, message: 'Reset code has expired' });
+        }
+        
+        // Hash new password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+        
+        // Update user password and clear reset code
+        user.password = hashedPassword;
+        user.resetPasswordCode = undefined;
+        user.resetPasswordExpiry = undefined;
+        await user.save();
+        
+        return res.status(200).json({ success: true, message: 'Password reset successfully' });
+    } catch (error) {
+        console.error('Reset password error:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
 export {
-    loginUser,
     registerUser,
+    loginUser,
     getProfile,
     updateProfile,
     bookAppointment,
@@ -580,5 +844,11 @@ export {
     checkJobApplication,
     submitJobApplication,
     getUserApplications,
-    completeAppointment
+    completeAppointment,
+    googleAuth,
+    verifyEmail,
+    resendVerification,
+    forgotPassword,
+    verifyResetCode,
+    resetPassword
 }

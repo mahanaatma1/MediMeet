@@ -257,26 +257,22 @@ const JobManagement = () => {
           </button>
         </div>
       ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow-md">
-          <table className="min-w-full">
-            <thead className="bg-gray-100 border-b">
-              <tr>
-                <th className="py-3 px-4 text-left font-semibold text-gray-700">Title</th>
-                <th className="py-3 px-4 text-left font-semibold text-gray-700">Department</th>
-                <th className="py-3 px-4 text-left font-semibold text-gray-700">Location</th>
-                <th className="py-3 px-4 text-left font-semibold text-gray-700">Status</th>
-                <th className="py-3 px-4 text-left font-semibold text-gray-700">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {jobs.map((job) => (
-                <tr key={job._id} className="border-b hover:bg-gray-50 transition-colors">
-                  <td className="py-3 px-4 font-medium">{job.title}</td>
-                  <td className="py-3 px-4 text-gray-700">{job.department}</td>
-                  <td className="py-3 px-4 text-gray-700">{job.location}</td>
-                  <td className="py-3 px-4">
+        <div>
+          {/* Mobile View */}
+          <div className="lg:hidden space-y-4">
+            {jobs.map((job) => (
+              <div key={job._id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800">{job.title}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <FaBuilding className="text-gray-400" />
+                        <span className="text-sm text-gray-600">{job.department}</span>
+                      </div>
+                    </div>
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                         job.isActive
                           ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
@@ -284,29 +280,96 @@ const JobManagement = () => {
                     >
                       {job.isActive ? 'Active' : 'Inactive'}
                     </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={() => handleEditJob(job)}
-                        className="text-blue-600 hover:text-blue-800 transition-colors"
-                        title="Edit job"
-                      >
-                        <FaEdit size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteJob(job._id)}
-                        className="text-red-600 hover:text-red-800 transition-colors"
-                        title="Delete job"
-                      >
-                        <FaTrash size={18} />
-                      </button>
+                  </div>
+                  
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <FaMapMarkerAlt className="text-gray-400" />
+                      <span>{job.location}</span>
                     </div>
-                  </td>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <FaMoneyBillWave className="text-gray-400" />
+                      <span>{job.salaryMin} - {job.salaryMax}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <FaClock className="text-gray-400" />
+                      <span>{job.employmentType}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-3 border-t">
+                    <button
+                      onClick={() => handleEditJob(job)}
+                      className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors flex items-center gap-1 text-sm"
+                    >
+                      <FaEdit size={14} />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteJob(job._id)}
+                      className="px-3 py-1.5 bg-red-50 text-red-600 rounded-md hover:bg-red-100 transition-colors flex items-center gap-1 text-sm"
+                    >
+                      <FaTrash size={14} />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop View */}
+          <div className="hidden lg:block overflow-x-auto bg-white rounded-lg shadow-md">
+            <table className="min-w-full">
+              <thead className="bg-gray-100 border-b">
+                <tr>
+                  <th className="py-3 px-4 text-left font-semibold text-gray-700">Title</th>
+                  <th className="py-3 px-4 text-left font-semibold text-gray-700">Department</th>
+                  <th className="py-3 px-4 text-left font-semibold text-gray-700">Location</th>
+                  <th className="py-3 px-4 text-left font-semibold text-gray-700">Status</th>
+                  <th className="py-3 px-4 text-left font-semibold text-gray-700">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {jobs.map((job) => (
+                  <tr key={job._id} className="border-b hover:bg-gray-50 transition-colors">
+                    <td className="py-3 px-4 font-medium">{job.title}</td>
+                    <td className="py-3 px-4 text-gray-700">{job.department}</td>
+                    <td className="py-3 px-4 text-gray-700">{job.location}</td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          job.isActive
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {job.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={() => handleEditJob(job)}
+                          className="text-blue-600 hover:text-blue-800 transition-colors"
+                          title="Edit job"
+                        >
+                          <FaEdit size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteJob(job._id)}
+                          className="text-red-600 hover:text-red-800 transition-colors"
+                          title="Delete job"
+                        >
+                          <FaTrash size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

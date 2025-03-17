@@ -9,6 +9,11 @@ const userSchema = new mongoose.Schema({
     gender: { type: String, default: 'Not Selected' },
     dob: { type: String, default: 'Not Selected' },
     password: { type: String, required: true },
+    isVerified: { type: Boolean, default: false },
+    verificationCode: { type: String },
+    verificationCodeExpiry: { type: Date },
+    resetPasswordCode: { type: String },
+    resetPasswordExpiry: { type: Date }
 })
 
 const userModel = mongoose.models.user || mongoose.model("user", userSchema);

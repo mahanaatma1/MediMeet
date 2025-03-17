@@ -145,7 +145,22 @@ const JobApplications = () => {
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">Job Applications</h2>
       
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="lg:hidden overflow-x-auto pb-4">
+        <div className="flex space-x-4 min-w-min">
+          <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100 w-[200px] flex-shrink-0">
+            <p className="text-sm text-gray-500">Total Applications</p>
+            <p className="text-2xl font-bold">{stats.total || 0}</p>
+          </div>
+          {statusOptions.map(status => (
+            <div key={status.value} className={`bg-white rounded-lg shadow-sm p-4 border ${statusColors[status.value]} w-[200px] flex-shrink-0`}>
+              <p className="text-sm">{status.label}</p>
+              <p className="text-2xl font-bold">{stats[status.value] || 0}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      <div className="hidden lg:grid lg:grid-cols-5 gap-4 mb-8">
         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
           <p className="text-sm text-gray-500">Total Applications</p>
           <p className="text-2xl font-bold">{stats.total || 0}</p>
@@ -161,7 +176,35 @@ const JobApplications = () => {
       {/* Filters and Search */}
       <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-100">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex flex-wrap gap-2">
+          <div className="lg:hidden overflow-x-auto pb-2">
+            <div className="flex space-x-2 min-w-min">
+              <button 
+                onClick={() => setFilter('all')}
+                className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap flex-shrink-0 ${
+                  filter === 'all' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All
+              </button>
+              {statusOptions.map(status => (
+                <button 
+                  key={status.value}
+                  onClick={() => setFilter(status.value)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap flex-shrink-0 ${
+                    filter === status.value 
+                      ? 'bg-blue-600 text-white' 
+                      : `${statusColors[status.value]} hover:opacity-80`
+                  }`}
+                >
+                  {status.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div className="hidden lg:flex lg:flex-wrap lg:gap-2">
             <button 
               onClick={() => setFilter('all')}
               className={`px-4 py-2 rounded-md text-sm font-medium ${
@@ -207,9 +250,63 @@ const JobApplications = () => {
         </div>
       </div>
       
-      {/* Applications Table */}
+      {/* Applications List */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100">
-        <div className="overflow-x-auto">
+        {/* Mobile View */}
+        <div className="lg:hidden space-y-4 p-4">
+          {filteredApplications.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No applications found
+            </div>
+          ) : (
+            filteredApplications.map((application) => (
+              <div key={application._id} className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
+                {/* Applicant Info */}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{application.fullName}</h3>
+                    <p className="text-sm text-gray-500">{application.email}</p>
+                  </div>
+                  <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                    statusColors[application.status]
+                  }`}>
+                    {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
+                  </span>
+                </div>
+
+                {/* Job Details */}
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <h4 className="text-sm font-medium text-gray-900">{application.jobId?.title || 'N/A'}</h4>
+                  <p className="text-sm text-gray-500">{application.jobId?.department || 'N/A'}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Applied on {new Date(application.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex justify-end space-x-3 pt-2 border-t border-gray-100">
+                  <button
+                    onClick={() => setSelectedApplication(application)}
+                    className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    View Details
+                  </button>
+                  <a
+                    href={application.resumeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    Resume
+                  </a>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop View */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>

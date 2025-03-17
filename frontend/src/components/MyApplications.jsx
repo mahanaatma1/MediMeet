@@ -83,33 +83,6 @@ const MyApplications = () => {
                 <p><span className="font-medium">Department:</span> {application.jobId?.department || 'N/A'}</p>
                 <p><span className="font-medium">Location:</span> {application.jobId?.location || 'N/A'}</p>
               </div>
-              
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <h4 className="font-medium text-gray-700 mb-2">Application Details</h4>
-                <div className="space-y-1 text-sm text-gray-600">
-                  <p><span className="font-medium">Full Name:</span> {application.fullName}</p>
-                  <p><span className="font-medium">Email:</span> {application.email}</p>
-                  <p><span className="font-medium">Phone:</span> {application.phone}</p>
-                  <p><span className="font-medium">Experience:</span> {application.experience}</p>
-                  <p><span className="font-medium">Education:</span> {application.education}</p>
-                </div>
-              </div>
-              
-              {application.resumeUrl && (
-                <div className="mt-4">
-                  <a 
-                    href={application.resumeUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
-                  >
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    View Resume
-                  </a>
-                </div>
-              )}
             </div>
           </div>
         ))}

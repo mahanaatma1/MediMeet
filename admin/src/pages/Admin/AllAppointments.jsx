@@ -11,23 +11,13 @@ const AllAppointments = () => {
   const [statusFilter, setStatusFilter] = useState('all')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [retryCount, setRetryCount] = useState(0)
   const [localAppointments, setLocalAppointments] = useState([])
   const [dataFetched, setDataFetched] = useState(false)
-  const [lastRefreshTime, setLastRefreshTime] = useState(0)
 
   // Memoize the fetchData function to avoid unnecessary re-renders
   const fetchData = useCallback(async () => {
-    // Prevent multiple rapid refreshes (debounce)
-    const now = Date.now();
-    if (now - lastRefreshTime < 2000) {
-      console.log("Refresh throttled - too soon since last refresh");
-      return;
-    }
-    
     setIsLoading(true)
     setError(null)
-    setLastRefreshTime(now)
     
     try {
       await getAllAppointments()
@@ -38,7 +28,7 @@ const AllAppointments = () => {
       setError("Failed to load appointments. Please try again.")
       setIsLoading(false)
     }
-  }, [getAllAppointments, lastRefreshTime])
+  }, [getAllAppointments])
 
   // Initial data loading
   useEffect(() => {
@@ -54,13 +44,6 @@ const AllAppointments = () => {
     }
   }, [appointments])
 
-  // Handle retry when data loading fails
-  const handleRetry = () => {
-    if (isLoading) return; // Prevent multiple clicks
-    setRetryCount(prev => prev + 1)
-    fetchData()
-  }
-
   // Handle appointment cancellation with confirmation
   const handleCancelAppointment = (id) => {
     if (isLoading) return; // Prevent action while loading
@@ -69,8 +52,13 @@ const AllAppointments = () => {
       setIsLoading(true)
       cancelAppointment(id)
         .then(() => {
-          // Refresh the appointments list after cancellation
-          return fetchData()
+          // Update local state instead of fetching all data again
+          setLocalAppointments(prev => 
+            prev.map(app => 
+              app._id === id ? { ...app, cancelled: true } : app
+            )
+          )
+          setIsLoading(false)
         })
         .catch(err => {
           console.error("Error cancelling appointment:", err)
@@ -150,13 +138,6 @@ const AllAppointments = () => {
           <p className="font-medium mb-2">Error</p>
           <p className="text-sm">{error}</p>
         </div>
-        <button 
-          onClick={handleRetry}
-          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-          disabled={isLoading}
-        >
-          Retry Loading
-        </button>
       </div>
     )
   }
@@ -173,14 +154,7 @@ const AllAppointments = () => {
             className="w-24 h-24 mx-auto mb-4 opacity-50"
           />
           <h2 className="text-xl font-medium text-gray-700 mb-2">No Appointments Found</h2>
-          <p className="text-gray-500 mb-6">There are no appointments in the system yet.</p>
-          <button 
-            onClick={handleRetry}
-            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Refreshing...' : 'Refresh'}
-          </button>
+          <p className="text-gray-500">There are no appointments in the system yet.</p>
         </div>
       </div>
     )
@@ -248,41 +222,6 @@ const AllAppointments = () => {
         </div>
       </div>
 
-      {/* Loading overlay for subsequent data fetches */}
-      {isLoading && dataFetched && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-          <div className="bg-white p-5 rounded-lg shadow-lg flex flex-col items-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary mb-3"></div>
-            <p className="text-gray-700">Updating data...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Refresh button */}
-      <div className="flex justify-end mb-4">
-        <button 
-          onClick={handleRetry}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <>
-              <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Refreshing...
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Refresh
-            </>
-          )}
-        </button>
-      </div>
-
       {/* Appointments table/list */}
       <div className='bg-white border rounded-xl shadow-sm overflow-hidden'>
         {/* Table header - visible only on larger screens */}
@@ -329,8 +268,8 @@ const AllAppointments = () => {
                     </div>
                     <p className='text-gray-600'>{item.userData && item.userData.dob ? calculateAge(item.userData.dob) : 'N/A'}</p>
                     <div>
-                      <p className="text-gray-700">{item.slotDate ? slotDateFormat(item.slotDate) : 'N/A'}</p>
-                      <p className="text-sm text-gray-500">{item.slotTime || 'N/A'}</p>
+                      <p className="font-medium text-gray-800">{slotDateFormat(item.slotDate)}</p>
+                      <p className="text-sm text-gray-500">{item.slotTime}</p>
                     </div>
                     <div className='flex items-center gap-3'>
                       {item.docData && item.docData.image ? (
@@ -347,7 +286,7 @@ const AllAppointments = () => {
                         <p className="text-xs text-gray-500">{item.docData && item.docData.specialization ? item.docData.specialization : 'N/A'}</p>
                       </div>
                     </div>
-                    <p className='font-medium text-gray-800'>{currency}{item.amount || 0}</p>
+                    <p className="font-medium text-gray-800">{currency}{item.amount}</p>
                     <div>
                       {item.cancelled || item.isCompleted ? (
                         getStatusBadge(item)
@@ -367,58 +306,75 @@ const AllAppointments = () => {
                   </div>
                   
                   {/* Mobile view - card style */}
-                  <div className='lg:hidden p-4'>
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex items-center gap-3">
-                        {item.userData && item.userData.image ? (
-                          <img src={item.userData.image} className='w-12 h-12 rounded-full object-cover border border-gray-200' alt="" />
-                        ) : (
-                          <div className='w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center'>
-                            <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"></path>
-                            </svg>
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-medium text-gray-800">{item.userData ? item.userData.name : 'Unknown'}</p>
-                          <p className="text-xs text-gray-500">
-                            Age: {item.userData && item.userData.dob ? calculateAge(item.userData.dob) : 'N/A'}
-                          </p>
+                  <div className='lg:hidden p-4 space-y-4'>
+                    {/* Patient Info */}
+                    <div className="flex items-center gap-3">
+                      {item.userData && item.userData.image ? (
+                        <img src={item.userData.image} className='w-12 h-12 rounded-full object-cover border border-gray-200' alt="" />
+                      ) : (
+                        <div className='w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center'>
+                          <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"></path>
+                          </svg>
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-800">{item.userData ? item.userData.name : 'Unknown'}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-gray-500">Age: {item.userData && item.userData.dob ? calculateAge(item.userData.dob) : 'N/A'}</span>
+                          <span className="text-xs text-gray-500">•</span>
+                          <span className="text-xs text-gray-500">{item.userData && item.userData.phone ? item.userData.phone : 'N/A'}</span>
                         </div>
                       </div>
                       {getStatusBadge(item)}
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 mb-3">
-                      <div>
-                        <p className="text-xs text-gray-500">Date & Time</p>
-                        <p className="text-sm font-medium">{item.slotDate ? slotDateFormat(item.slotDate) : 'N/A'}, {item.slotTime || 'N/A'}</p>
+
+                    {/* Appointment Details */}
+                    <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span className="text-gray-600">{slotDateFormat(item.slotDate)}</span>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Fees</p>
-                        <p className="text-sm font-medium">{currency}{item.amount || 0}</p>
+                      <div className="flex items-center gap-2 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-gray-600">{item.slotTime}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-gray-600">{currency}{item.amount}</span>
                       </div>
                     </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        {item.docData && item.docData.image ? (
-                          <img src={item.docData.image} className='w-8 h-8 rounded-full object-cover border border-gray-200' alt="" />
-                        ) : (
-                          <div className='w-8 h-8 rounded-full bg-gray-200'></div>
-                        )}
-                        <div>
-                          <p className="text-xs text-gray-500">Doctor</p>
-                          <p className="text-sm font-medium">{item.docData ? item.docData.name : 'Unknown'}</p>
+
+                    {/* Doctor Info */}
+                    <div className="flex items-center gap-3">
+                      {item.docData && item.docData.image ? (
+                        <img src={item.docData.image} className='w-12 h-12 rounded-full object-cover border border-gray-200' alt="" />
+                      ) : (
+                        <div className='w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center'>
+                          <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"></path>
+                          </svg>
                         </div>
+                      )}
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-800">{item.docData ? item.docData.name : 'Unknown'}</p>
+                        <p className="text-xs text-gray-500">{item.docData && item.docData.specialization ? item.docData.specialization : 'N/A'}</p>
                       </div>
-                      
                       {!item.cancelled && !item.isCompleted && (
                         <button 
                           onClick={() => handleCancelAppointment(item._id)} 
-                          className="px-3 py-1 bg-red-100 text-red-700 text-sm rounded-md hover:bg-red-200 transition-colors"
+                          className="px-3 py-1.5 bg-red-100 text-red-700 text-sm rounded-md hover:bg-red-200 transition-colors flex items-center gap-1"
                           disabled={isLoading}
                         >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
                           Cancel
                         </button>
                       )}

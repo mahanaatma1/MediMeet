@@ -5,7 +5,7 @@ import JobApplicationForm from '../components/JobApplicationForm';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { toast } from 'react-hot-toast';
-import { FaBuilding, FaMapMarkerAlt, FaMoneyBillWave, FaCalendarAlt, FaEnvelope, FaPhone, FaBriefcase, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaBuilding, FaMapMarkerAlt, FaMoneyBillWave, FaCalendarAlt, FaEnvelope, FaPhone, FaBriefcase, FaChevronDown, FaChevronUp, FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 
 const Careers = () => {
   const [jobs, setJobs] = useState([]);
@@ -86,7 +86,7 @@ const Careers = () => {
 
   const handleScroll = (direction) => {
     const container = scrollContainerRef.current;
-    const scrollAmount = 400; // Width of one card
+    const scrollAmount = 350; // Width of one card
     const newPosition = direction === 'left' 
       ? scrollPosition - scrollAmount 
       : scrollPosition + scrollAmount;
@@ -157,153 +157,252 @@ const Careers = () => {
             <p className="text-red-600">{error}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayJobs.map((job) => (
-              <div 
-                key={job._id || job.id} 
-                className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 transform hover:-translate-y-1"
-                onMouseEnter={() => setHoveredJob(job._id || job.id)}
-                onMouseLeave={() => setHoveredJob(null)}
-              >
-                <div className="relative">
-                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 border-b">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-800 mb-1">{job.title}</h3>
-                        <div className="flex items-center gap-3 text-sm text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <FaBuilding className="text-blue-500 text-xs" />
-                            <span>{job.department}</span>
+          <>
+            {/* Mobile view - horizontal scrollable */}
+            <div className="md:hidden relative">
+              <div className="overflow-x-auto pb-4" ref={scrollContainerRef}>
+                <div className="flex space-x-4" style={{ minWidth: 'min-content' }}>
+                  {displayJobs.map((job) => (
+                    <div 
+                      key={job._id || job.id} 
+                      className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 flex-shrink-0"
+                      style={{ width: '330px' }}
+                    >
+                      <div className="relative">
+                        <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 border-b">
+                          <div>
+                            <h3 className="text-lg font-bold text-gray-800 mb-1">{job.title}</h3>
+                            <div className="flex items-center gap-3 text-sm text-gray-600">
+                              <div className="flex items-center gap-1">
+                                <FaBuilding className="text-blue-500 text-xs" />
+                                <span>{job.department}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <FaMapMarkerAlt className="text-blue-500 text-xs" />
+                                <span>{job.location}</span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <FaMapMarkerAlt className="text-blue-500 text-xs" />
-                            <span>{job.location}</span>
+                        </div>
+                        
+                        <div className="p-4">
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="font-semibold text-gray-700 text-sm mb-1">Description</h4>
+                              <p className="text-gray-600 text-sm line-clamp-2">
+                                {job.description}
+                              </p>
+                            </div>
+                            
+                            <div>
+                              <h4 className="font-semibold text-gray-700 text-sm mb-1">Requirements</h4>
+                              <p className="text-gray-600 text-sm line-clamp-2">
+                                {job.requirements}
+                              </p>
+                            </div>
+
+                            {(job.salaryMin || job.salaryMax) && (
+                              <div className="flex items-center gap-2 text-gray-600 text-sm">
+                                <FaMoneyBillWave className="text-blue-500 text-xs" />
+                                <span>
+                                  {job.salaryMin && job.salaryMax 
+                                    ? `${job.salaryMin} - ${job.salaryMax}`
+                                    : job.salaryMin 
+                                      ? `Min: ${job.salaryMin}`
+                                      : `Up to ${job.salaryMax}`}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="px-4 py-3 bg-gray-50 border-t">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                              <div className="flex items-center gap-1">
+                                <FaEnvelope className="text-blue-500" />
+                                <span className="truncate max-w-[120px]">{job.contactEmail}</span>
+                              </div>
+                            </div>
+                            <button 
+                              onClick={() => handleApplyClick(job)}
+                              className="bg-blue-600 text-white px-4 py-1.5 rounded-full hover:bg-blue-700 transition-colors duration-300 flex items-center gap-1.5 text-sm"
+                            >
+                              <FaBriefcase className="text-xs" />
+                              Apply
+                            </button>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {job.employmentType && (
-                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                            {job.employmentType}
-                          </span>
-                        )}
-                        {job.isActive ? (
-                          <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
-                            Closed
-                          </span>
-                        )}
-                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="p-4">
-                    <div className="space-y-3">
-                      <div>
-                        <h4 className="font-semibold text-gray-700 text-sm mb-1">Description</h4>
-                        <p className={`text-gray-600 text-sm ${!expandedSections[`${job._id || job.id}-description`] ? 'line-clamp-2' : ''}`}>
-                          {job.description}
-                        </p>
-                        <button 
-                          onClick={() => toggleExpansion(job._id || job.id, 'description')}
-                          className="text-blue-600 text-xs font-medium mt-1 flex items-center gap-1 hover:text-blue-700"
-                        >
-                          {expandedSections[`${job._id || job.id}-description`] ? (
-                            <>
-                              Show Less <FaChevronUp className="text-xs" />
-                            </>
-                          ) : (
-                            <>
-                              View More <FaChevronDown className="text-xs" />
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      
-                      <div>
-                        <h4 className="font-semibold text-gray-700 text-sm mb-1">Requirements</h4>
-                        <p className={`text-gray-600 text-sm ${!expandedSections[`${job._id || job.id}-requirements`] ? 'line-clamp-2' : ''}`}>
-                          {job.requirements}
-                        </p>
-                        <button 
-                          onClick={() => toggleExpansion(job._id || job.id, 'requirements')}
-                          className="text-blue-600 text-xs font-medium mt-1 flex items-center gap-1 hover:text-blue-700"
-                        >
-                          {expandedSections[`${job._id || job.id}-requirements`] ? (
-                            <>
-                              Show Less <FaChevronUp className="text-xs" />
-                            </>
-                          ) : (
-                            <>
-                              View More <FaChevronDown className="text-xs" />
-                            </>
-                          )}
-                        </button>
-                      </div>
-
-                      {(job.salaryMin || job.salaryMax) && (
-                        <div className="flex items-center gap-2 text-gray-600 text-sm">
-                          <FaMoneyBillWave className="text-blue-500 text-xs" />
-                          <span>
-                            {job.salaryMin && job.salaryMax 
-                              ? `${job.salaryMin} - ${job.salaryMax}`
-                              : job.salaryMin 
-                                ? `Min: ${job.salaryMin}`
-                                : `Up to ${job.salaryMax}`}
-                          </span>
-                        </div>
-                      )}
-
-                      {job.applicationDeadline && (
-                        <div className="flex items-center gap-2 text-gray-600 text-sm">
-                          <FaCalendarAlt className="text-blue-500 text-xs" />
-                          <span>Apply by: {new Date(job.applicationDeadline).toLocaleDateString()}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="px-4 py-3 bg-gray-50 border-t">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 text-xs text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <FaEnvelope className="text-blue-500" />
-                          <span className="truncate max-w-[120px]">{job.contactEmail}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <FaPhone className="text-blue-500" />
-                          <span>{job.contactPhone}</span>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => handleApplyClick(job)}
-                        className="bg-blue-600 text-white px-4 py-1.5 rounded-full hover:bg-blue-700 transition-colors duration-300 flex items-center gap-1.5 text-sm group"
-                      >
-                        <FaBriefcase className="text-xs group-hover:rotate-12 transition-transform" />
-                        Apply
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Quick view overlay */}
-                  {hoveredJob === (job._id || job.id) && (
-                    <div className="absolute inset-0 bg-black bg-opacity-5 flex items-center justify-center">
-                      <button 
-                        onClick={() => handleApplyClick(job)}
-                        className="bg-white text-blue-600 px-4 py-1.5 rounded-full shadow-lg hover:bg-blue-50 transition-colors duration-300 flex items-center gap-1.5 text-sm"
-                      >
-                        <FaBriefcase className="text-xs" />
-                        Quick Apply
-                      </button>
-                    </div>
-                  )}
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
+              <div className="flex justify-between mt-2">
+                <button 
+                  onClick={() => handleScroll('left')}
+                  className="bg-white p-2 rounded-full shadow-md text-blue-600 hover:bg-blue-50"
+                >
+                  <FaArrowLeft size={14} />
+                </button>
+                <button 
+                  onClick={() => handleScroll('right')}
+                  className="bg-white p-2 rounded-full shadow-md text-blue-600 hover:bg-blue-50"
+                >
+                  <FaArrowRight size={14} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Desktop view - grid layout */}
+            <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {displayJobs.map((job) => (
+                <div 
+                  key={`desktop-${job._id || job.id}`} 
+                  className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 transform hover:-translate-y-1"
+                  onMouseEnter={() => setHoveredJob(job._id || job.id)}
+                  onMouseLeave={() => setHoveredJob(null)}
+                >
+                  <div className="relative">
+                    <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 border-b">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-800 mb-1">{job.title}</h3>
+                          <div className="flex items-center gap-3 text-sm text-gray-600">
+                            <div className="flex items-center gap-1">
+                              <FaBuilding className="text-blue-500 text-xs" />
+                              <span>{job.department}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <FaMapMarkerAlt className="text-blue-500 text-xs" />
+                              <span>{job.location}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {job.employmentType && (
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                              {job.employmentType}
+                            </span>
+                          )}
+                          {job.isActive ? (
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
+                              Closed
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4">
+                      <div className="space-y-3">
+                        <div>
+                          <h4 className="font-semibold text-gray-700 text-sm mb-1">Description</h4>
+                          <p className={`text-gray-600 text-sm ${!expandedSections[`${job._id || job.id}-description`] ? 'line-clamp-2' : ''}`}>
+                            {job.description}
+                          </p>
+                          <button 
+                            onClick={() => toggleExpansion(job._id || job.id, 'description')}
+                            className="text-blue-600 text-xs font-medium mt-1 flex items-center gap-1 hover:text-blue-700"
+                          >
+                            {expandedSections[`${job._id || job.id}-description`] ? (
+                              <>
+                                Show Less <FaChevronUp className="text-xs" />
+                              </>
+                            ) : (
+                              <>
+                                View More <FaChevronDown className="text-xs" />
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        
+                        <div>
+                          <h4 className="font-semibold text-gray-700 text-sm mb-1">Requirements</h4>
+                          <p className={`text-gray-600 text-sm ${!expandedSections[`${job._id || job.id}-requirements`] ? 'line-clamp-2' : ''}`}>
+                            {job.requirements}
+                          </p>
+                          <button 
+                            onClick={() => toggleExpansion(job._id || job.id, 'requirements')}
+                            className="text-blue-600 text-xs font-medium mt-1 flex items-center gap-1 hover:text-blue-700"
+                          >
+                            {expandedSections[`${job._id || job.id}-requirements`] ? (
+                              <>
+                                Show Less <FaChevronUp className="text-xs" />
+                              </>
+                            ) : (
+                              <>
+                                View More <FaChevronDown className="text-xs" />
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        {(job.salaryMin || job.salaryMax) && (
+                          <div className="flex items-center gap-2 text-gray-600 text-sm">
+                            <FaMoneyBillWave className="text-blue-500 text-xs" />
+                            <span>
+                              {job.salaryMin && job.salaryMax 
+                                ? `${job.salaryMin} - ${job.salaryMax}`
+                                : job.salaryMin 
+                                  ? `Min: ${job.salaryMin}`
+                                  : `Up to ${job.salaryMax}`}
+                            </span>
+                          </div>
+                        )}
+
+                        {job.applicationDeadline && (
+                          <div className="flex items-center gap-2 text-gray-600 text-sm">
+                            <FaCalendarAlt className="text-blue-500 text-xs" />
+                            <span>Apply by: {new Date(job.applicationDeadline).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="px-4 py-3 bg-gray-50 border-t">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 text-xs text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <FaEnvelope className="text-blue-500" />
+                            <span className="truncate max-w-[120px]">{job.contactEmail}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <FaPhone className="text-blue-500" />
+                            <span>{job.contactPhone}</span>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => handleApplyClick(job)}
+                          className="bg-blue-600 text-white px-4 py-1.5 rounded-full hover:bg-blue-700 transition-colors duration-300 flex items-center gap-1.5 text-sm group"
+                        >
+                          <FaBriefcase className="text-xs group-hover:rotate-12 transition-transform" />
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick view overlay */}
+                    {hoveredJob === (job._id || job.id) && (
+                      <div className="absolute inset-0 bg-black bg-opacity-5 flex items-center justify-center">
+                        <button 
+                          onClick={() => handleApplyClick(job)}
+                          className="bg-white text-blue-600 px-4 py-1.5 rounded-full shadow-lg hover:bg-blue-50 transition-colors duration-300 flex items-center gap-1.5 text-sm"
+                        >
+                          <FaBriefcase className="text-xs" />
+                          Quick Apply
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

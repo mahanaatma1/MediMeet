@@ -45,7 +45,85 @@ const Dashboard = () => {
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Admin Dashboard</h1>
       
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Mobile View - Horizontal Scroll */}
+      <div className="sm:hidden overflow-x-auto pb-4 mb-8">
+        <div className="flex space-x-4 min-w-min">
+          {/* Doctors Card */}
+          <div className="flex-shrink-0 w-[280px] bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm overflow-hidden">
+            <div className="p-6 flex items-center">
+              <div className="bg-blue-100 p-3 rounded-lg mr-4">
+                <img className="w-10 h-10" src={assets.doctor_icon} alt="Doctors" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-800">{dashData.doctors}</p>
+                <p className="text-sm text-gray-600">Total Doctors</p>
+              </div>
+            </div>
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 h-1"></div>
+            <div className="px-6 py-2 bg-white flex justify-between items-center">
+              <span className="text-xs text-gray-500">Active Doctors</span>
+              <span className="text-xs font-medium text-blue-600">{dashData.doctors}</span>
+            </div>
+          </div>
+          
+          {/* Appointments Card */}
+          <div className="flex-shrink-0 w-[280px] bg-gradient-to-r from-green-50 to-teal-50 rounded-xl shadow-sm overflow-hidden">
+            <div className="p-6 flex items-center">
+              <div className="bg-green-100 p-3 rounded-lg mr-4">
+                <img className="w-10 h-10" src={assets.appointments_icon} alt="Appointments" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-800">{dashData.appointments}</p>
+                <p className="text-sm text-gray-600">Total Appointments</p>
+              </div>
+            </div>
+            <div className="bg-gradient-to-r from-green-500 to-teal-600 h-1"></div>
+            <div className="px-6 py-2 bg-white flex justify-between items-center">
+              <span className="text-xs text-gray-500">Completed</span>
+              <span className="text-xs font-medium text-green-600">{dashData.completedAppointments || 0}</span>
+            </div>
+          </div>
+          
+          {/* Patients Card */}
+          <div className="flex-shrink-0 w-[280px] bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm overflow-hidden">
+            <div className="p-6 flex items-center">
+              <div className="bg-purple-100 p-3 rounded-lg mr-4">
+                <img className="w-10 h-10" src={assets.patients_icon} alt="Patients" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-800">{dashData.patients}</p>
+                <p className="text-sm text-gray-600">Total Patients</p>
+              </div>
+            </div>
+            <div className="bg-gradient-to-r from-purple-500 to-pink-600 h-1"></div>
+            <div className="px-6 py-2 bg-white flex justify-between items-center">
+              <span className="text-xs text-gray-500">New This Month</span>
+              <span className="text-xs font-medium text-purple-600">{dashData.newPatients || 0}</span>
+            </div>
+          </div>
+
+          {/* Revenue Card */}
+          <div className="flex-shrink-0 w-[280px] bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl shadow-sm overflow-hidden">
+            <div className="p-6 flex items-center">
+              <div className="bg-amber-100 p-3 rounded-lg mr-4">
+                <span className="text-2xl font-bold text-amber-600">₹</span>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-800">{currency}{dashData.adminRevenue}</p>
+                <p className="text-sm text-gray-600">Total Revenue</p>
+              </div>
+            </div>
+            <div className="bg-gradient-to-r from-amber-500 to-yellow-600 h-1"></div>
+            <div className="px-6 py-2 bg-white flex justify-between items-center">
+              <span className="text-xs text-gray-500">Admin Share</span>
+              <span className="text-xs font-medium text-amber-600">20%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop View - Grid Layout */}
+      <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {/* Doctors Card */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm overflow-hidden">
           <div className="p-6 flex items-center">
@@ -104,26 +182,24 @@ const Dashboard = () => {
         <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl shadow-sm overflow-hidden">
           <div className="p-6 flex items-center">
             <div className="bg-amber-100 p-3 rounded-lg mr-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <span className="text-2xl font-bold text-amber-600">₹</span>
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-800">{currency}{dashData.totalRevenue || 0}</p>
+              <p className="text-2xl font-bold text-gray-800">{currency}{dashData.adminRevenue}</p>
               <p className="text-sm text-gray-600">Total Revenue</p>
             </div>
           </div>
           <div className="bg-gradient-to-r from-amber-500 to-yellow-600 h-1"></div>
           <div className="px-6 py-2 bg-white flex justify-between items-center">
-            <span className="text-xs text-gray-500">Admin Share (20%)</span>
-            <span className="text-xs font-medium text-amber-600">{currency}{dashData.adminRevenue || 0}</span>
+            <span className="text-xs text-gray-500">Admin Share</span>
+            <span className="text-xs font-medium text-amber-600">20%</span>
           </div>
         </div>
       </div>
 
       {/* Latest Bookings */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b">
           <div className="flex items-center gap-2">
             <img src={assets.list_icon} alt="" className="w-5 h-5" />
             <h2 className="font-semibold text-gray-800">Latest Appointments</h2>
@@ -144,7 +220,56 @@ const Dashboard = () => {
           <div className="divide-y">
             {dashData.latestAppointments.slice(0, 5).map((item, index) => (
               <div className="p-4 sm:px-6 hover:bg-gray-50 transition-colors" key={index}>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                {/* Mobile View */}
+                <div className="sm:hidden space-y-4">
+                  {/* Doctor Info */}
+                  <div className="flex items-center gap-3">
+                    <img 
+                      className="w-12 h-12 rounded-full object-cover border" 
+                      src={item.docData.image} 
+                      alt={item.docData.name} 
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-800">{item.docData.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-gray-500">
+                          {slotDateFormat(item.slotDate)}, {item.slotTime}
+                        </span>
+                        {getStatusBadge(item)}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Patient Info */}
+                  <div className="flex items-center gap-3">
+                    <img 
+                      className="w-10 h-10 rounded-full object-cover border" 
+                      src={item.userData.image} 
+                      alt={item.userData.name} 
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">{item.userData.name}</p>
+                      <p className="text-xs text-gray-500">Patient</p>
+                    </div>
+                  </div>
+                  
+                  {/* Payment Info */}
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-sm text-gray-600">Amount</p>
+                        <p className="font-medium text-gray-800">{currency}{item.amount}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600">Payment</p>
+                        <p className="text-sm font-medium text-gray-800">{item.payment ? 'Online' : 'Cash'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desktop View */}
+                <div className="hidden sm:flex sm:flex-row sm:items-center gap-4">
                   {/* Doctor Info */}
                   <div className="flex items-center flex-1 gap-3">
                     <img 
@@ -188,7 +313,7 @@ const Dashboard = () => {
             ))}
           </div>
         )}
-        <div className="px-6 py-3 bg-gray-50 border-t text-xs text-gray-500 italic">
+        <div className="px-4 sm:px-6 py-3 bg-gray-50 border-t text-xs text-gray-500 italic">
           To cancel or manage appointments, please visit the <button onClick={() => navigate('/all-appointments')} className="text-primary hover:underline">Appointments</button> page.
         </div>
       </div>
@@ -201,7 +326,37 @@ const Dashboard = () => {
             <h2 className="font-semibold text-gray-800">Revenue Overview</h2>
           </div>
           <div className="p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* Mobile View - Grid Layout */}
+            <div className="sm:hidden grid grid-cols-2 gap-4">
+              <div className="bg-gradient-to-r from-amber-50 to-yellow-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Total Revenue</p>
+                <p className="text-lg font-semibold text-gray-800">{currency}{dashData.totalRevenue || 0}</p>
+                <div className="mt-1 text-xs text-gray-500">From all appointments</div>
+              </div>
+              
+              <div className="bg-gradient-to-r from-green-50 to-teal-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Admin Revenue</p>
+                <p className="text-lg font-semibold text-gray-800">{currency}{dashData.adminRevenue || 0}</p>
+                <div className="mt-1 text-xs text-gray-500">20% of total revenue</div>
+              </div>
+              
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Doctors' Share</p>
+                <p className="text-lg font-semibold text-gray-800">{currency}{(dashData.totalRevenue - dashData.adminRevenue) || 0}</p>
+                <div className="mt-1 text-xs text-gray-500">80% of total revenue</div>
+              </div>
+              
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Revenue per Doctor</p>
+                <p className="text-lg font-semibold text-gray-800">
+                  {currency}{dashData.doctors > 0 ? Math.round((dashData.totalRevenue - dashData.adminRevenue) / dashData.doctors) : 0}
+                </p>
+                <div className="mt-1 text-xs text-gray-500">Average per doctor</div>
+              </div>
+            </div>
+
+            {/* Desktop View - Grid Layout */}
+            <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="bg-gradient-to-r from-amber-50 to-yellow-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-600 mb-1">Total Revenue</p>
                 <p className="text-2xl font-bold text-gray-800">{currency}{dashData.totalRevenue || 0}</p>
