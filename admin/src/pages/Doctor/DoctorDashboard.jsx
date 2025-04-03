@@ -285,7 +285,7 @@ const DoctorDashboard = () => {
                               )}
                             </svg>
                             <span className="text-sm font-medium text-gray-900">
-                              {item.payment ? 'Online Payment' : 'Cash Payment'}
+                              Online Payment
                             </span>
                           </div>
                         </div>

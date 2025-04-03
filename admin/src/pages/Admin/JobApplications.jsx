@@ -132,6 +132,80 @@ const JobApplications = () => {
     return matchesFilter && matchesSearch;
   });
 
+  // Function to view resume with authentication
+  const viewResume = async (applicationId) => {
+    const token = localStorage.getItem('aToken');
+    console.log("Using admin token for resume view:", token ? "Token found" : "No token");
+    
+    // OPTION 1: Direct URL approach (works for sharing, but requires proper CORS and authentication handling)
+    // Uncomment this code and comment out Option 2 when deploying to production if you want direct URLs
+    /*
+    const directUrl = `${backendUrl}/api/admin/job-applications/${applicationId}/resume?atoken=${encodeURIComponent(token)}`;
+    window.open(directUrl, '_blank');
+    */
+    
+    // OPTION 2: Blob URL approach (more secure, but generates temporary URLs)
+    try {
+      // Fetch the PDF data using axios with proper authentication
+      const response = await axios.get(
+        `${backendUrl}/api/admin/job-applications/${applicationId}/resume`,
+        {
+          headers: { atoken: token },
+          responseType: 'blob' // Important: We need the response as a blob
+        }
+      );
+      
+      // Create a Blob URL from the PDF data
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const blobUrl = URL.createObjectURL(blob);
+      
+      // When hosted, the blob URL will look like: blob:https://yourdomain.com/random-id
+      // These are temporary URLs that only work in the browser session where they were created
+      console.log("Generated blob URL:", blobUrl);
+      
+      // Open the PDF in a new tab
+      window.open(blobUrl, '_blank');
+    } catch (error) {
+      console.error("Error fetching resume:", error);
+      toast.error("Failed to load resume. Please try again.");
+    }
+  };
+  
+  // Function to download resume with authentication
+  const downloadResume = async (applicationId, filename = 'resume.pdf') => {
+    const token = localStorage.getItem('aToken');
+    console.log("Using admin token for resume download:", token ? "Token found" : "No token");
+    
+    try {
+      // Fetch the PDF data using axios with proper authentication
+      const response = await axios.get(
+        `${backendUrl}/api/admin/job-applications/${applicationId}/resume`,
+        {
+          headers: { atoken: token },
+          responseType: 'blob' // Important: We need the response as a blob
+        }
+      );
+      
+      // Create a Blob URL from the PDF data
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const blobUrl = URL.createObjectURL(blob);
+      
+      // Create a link to download the file
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Cleanup
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Error downloading resume:", error);
+      toast.error("Failed to download resume. Please try again.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -291,14 +365,12 @@ const JobApplications = () => {
                   >
                     View Details
                   </button>
-                  <a
-                    href={application.resumeUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={() => viewResume(application._id)}
                     className="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
                   >
                     Resume
-                  </a>
+                  </button>
                 </div>
               </div>
             ))
@@ -356,14 +428,12 @@ const JobApplications = () => {
                       >
                         View
                       </button>
-                      <a
-                        href={application.resumeUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() => viewResume(application._id)}
                         className="text-green-600 hover:text-green-900"
                       >
                         Resume
-                      </a>
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -431,24 +501,23 @@ const JobApplications = () => {
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2 text-gray-600">
                   <FaFilePdf className="w-5 h-5 text-red-500" />
-                  <span className="text-sm">{selectedApplication.resumeUrl.split('/').pop()}</span>
+                  <span className="text-sm">{selectedApplication.resumeName || 'Resume.pdf'}</span>
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => window.open(selectedApplication.resumeUrl, '_blank')}
+                    onClick={() => viewResume(selectedApplication._id)}
                     className="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
                     <FaFilePdf className="w-4 h-4 mr-1.5" />
                     View Resume
                   </button>
-                  <a
-                    href={selectedApplication.resumeUrl}
-                    download
+                  <button
+                    onClick={() => downloadResume(selectedApplication._id, selectedApplication.resumeName || 'resume.pdf')}
                     className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
                     <FaDownload className="w-4 h-4 mr-1.5" />
                     Download
-                  </a>
+                  </button>
                 </div>
               </div>
               <div className="mt-2 text-xs text-gray-500">

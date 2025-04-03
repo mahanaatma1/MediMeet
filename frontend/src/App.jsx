@@ -20,28 +20,30 @@ import MeetingRoom from './pages/MeetingRoom'
 
 const App = () => {
   return (
-    <div className='mx-4 sm:mx-[10%]'>
+    <>
       <ToastContainer />
       <Toaster position="top-center" />
       <Navbar />
-      <Routes>
-        <Route path='/' element={<Home />} />
-        <Route path='/doctors' element={<Doctors />} />
-        <Route path='/doctors/:speciality' element={<Doctors />} />
-        <Route path='/login' element={<Login />} />
-        <Route path='/about' element={<About />} />
-        <Route path='/contact' element={<Contact />} />
-        <Route path='/appointment/:docId' element={<Appointment />} />
-        <Route path='/my-appointments' element={<MyAppointments />} />
-        <Route path='/my-profile' element={<MyProfile />} />
-        <Route path='/verify' element={<Verify />} />
-        <Route path='/privacy-policy' element={<PrivacyPolicy />} />
-        <Route path='/careers' element={<Careers />} />
-        <Route path='/my-applications' element={<MyApplications />} />
-        <Route path='/meeting/:appointmentId' element={<MeetingRoom />} />
-      </Routes>
-      <Footer />
-    </div>
+      <div className='pt-[80px] sm:pt-[90px] mx-4 sm:mx-[10%]'>
+        <Routes>
+          <Route path='/' element={<Home />} />
+          <Route path='/doctors' element={<Doctors />} />
+          <Route path='/doctors/:speciality' element={<Doctors />} />
+          <Route path='/login' element={<Login />} />
+          <Route path='/about' element={<About />} />
+          <Route path='/contact' element={<Contact />} />
+          <Route path='/appointment/:docId' element={<Appointment />} />
+          <Route path='/my-appointments' element={<MyAppointments />} />
+          <Route path='/my-profile' element={<MyProfile />} />
+          <Route path='/verify' element={<Verify />} />
+          <Route path='/privacy-policy' element={<PrivacyPolicy />} />
+          <Route path='/careers' element={<Careers />} />
+          <Route path='/my-applications' element={<MyApplications />} />
+          <Route path='/meeting/:appointmentId' element={<MeetingRoom />} />
+        </Routes>
+        <Footer />
+      </div>
+    </>
   )
 }
 

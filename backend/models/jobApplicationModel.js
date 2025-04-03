@@ -35,8 +35,16 @@ const jobApplicationSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    resumeUrl: {
-        type: String,
+    resumeData: {
+        type: String, // Base64 encoded resume data
+        required: true
+    },
+    resumeName: {
+        type: String, // Original file name
+        required: true
+    },
+    resumeType: {
+        type: String, // MIME type (e.g., application/pdf)
         required: true
     },
     coverLetter: {

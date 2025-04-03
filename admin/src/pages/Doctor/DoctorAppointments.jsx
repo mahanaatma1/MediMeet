@@ -481,7 +481,7 @@ const DoctorAppointments = () => {
                     </div>
                   )}
                 </div>
-                <p className="font-medium text-gray-800">{currency}{item.amount}</p>
+                <p className="font-medium text-gray-800">{currency}{item.amount ? item.amount : '0'}</p>
                 
                 {item.cancelled ? (
                   <p className='text-red-500 text-sm font-medium'>Cancelled</p>
@@ -585,7 +585,7 @@ const DoctorAppointments = () => {
                   </div>
                   <div>
                     <p className="text-gray-500">Payment</p>
-                    <p className="font-medium">{item.payment ? 'Online' : 'CASH'} - {currency}{item.amount}</p>
+                    <p className="font-medium">{item.payment ? 'Online' : 'CASH'} - {currency}{item.amount ? item.amount : '0'}</p>
                   </div>
                 </div>
                 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { assets } from '../assets/assets';
 import axios from 'axios';
 import JobApplicationForm from '../components/JobApplicationForm';
@@ -19,6 +19,14 @@ const Careers = () => {
   const navigate = useNavigate();
   const { token } = useAppContext();
   const scrollContainerRef = useRef(null);
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
+  const autoScrollTimerRef = useRef(null);
+  
+  // Minimum swipe distance (in px)
+  const minSwipeDistance = 50;
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -84,18 +92,34 @@ const Careers = () => {
   // Use fallback jobs if API fails or returns empty
   const displayJobs = jobs.length > 0 ? jobs : fallbackJobs;
 
-  const handleScroll = (direction) => {
-    const container = scrollContainerRef.current;
-    const scrollAmount = 350; // Width of one card
-    const newPosition = direction === 'left' 
-      ? scrollPosition - scrollAmount 
-      : scrollPosition + scrollAmount;
-    
-    container.scrollTo({
-      left: newPosition,
-      behavior: 'smooth'
-    });
-    setScrollPosition(newPosition);
+  const handleScroll = useCallback((direction) => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const scrollAmount = 350; // slightly more than the card width to account for margin
+      
+      if (direction === 'left') {
+        container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+        if (currentCardIndex > 0) {
+          setCurrentCardIndex(prev => prev - 1);
+        }
+      } else {
+        container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        if (currentCardIndex < displayJobs.length - 1) {
+          setCurrentCardIndex(prev => prev + 1);
+        }
+      }
+    }
+  }, [currentCardIndex, displayJobs.length]);
+
+  const handleDotClick = (index) => {
+    handleUserInteractionStart();
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const scrollAmount = 350 * index; // Each card is about 350px including margins
+      container.scrollTo({ left: scrollAmount, behavior: 'smooth' });
+      setCurrentCardIndex(index);
+    }
+    handleUserInteractionEnd();
   };
 
   const toggleExpansion = (jobId, section) => {
@@ -103,6 +127,112 @@ const Careers = () => {
       ...prev,
       [`${jobId}-${section}`]: !prev[`${jobId}-${section}`]
     }));
+  };
+
+  // Add a scroll event listener to update the current card index based on scroll position
+  useEffect(() => {
+    const handleScrollPosition = () => {
+      if (scrollContainerRef.current) {
+        const container = scrollContainerRef.current;
+        const scrollLeft = container.scrollLeft;
+        const cardWidth = 350; // Card width + spacing
+        const newIndex = Math.round(scrollLeft / cardWidth);
+        
+        if (newIndex !== currentCardIndex && newIndex >= 0 && newIndex < displayJobs.length) {
+          setCurrentCardIndex(newIndex);
+        }
+      }
+    };
+
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScrollPosition);
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener('scroll', handleScrollPosition);
+      }
+    };
+  }, [currentCardIndex, displayJobs.length]);
+
+  // Update current card index if jobs change to ensure it's valid
+  useEffect(() => {
+    if (currentCardIndex >= displayJobs.length) {
+      setCurrentCardIndex(Math.max(0, displayJobs.length - 1));
+    }
+  }, [displayJobs.length, currentCardIndex]);
+
+  // Start auto-scrolling when component mounts and jobs are loaded
+  useEffect(() => {
+    if (displayJobs.length <= 1 || isUserInteracting) {
+      return;
+    }
+    
+    const startAutoScroll = () => {
+      autoScrollTimerRef.current = setInterval(() => {
+        if (currentCardIndex < displayJobs.length - 1) {
+          handleScroll('right');
+        } else {
+          // Reset to first card when reached the end
+          if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+            setCurrentCardIndex(0);
+          }
+        }
+      }, 5000); // Auto-scroll every 5 seconds
+    };
+    
+    startAutoScroll();
+    
+    return () => {
+      if (autoScrollTimerRef.current) {
+        clearInterval(autoScrollTimerRef.current);
+      }
+    };
+  }, [displayJobs.length, currentCardIndex, isUserInteracting, handleScroll]);
+  
+  // Pause auto-scroll during user interaction and resume after
+  const handleUserInteractionStart = () => {
+    setIsUserInteracting(true);
+    if (autoScrollTimerRef.current) {
+      clearInterval(autoScrollTimerRef.current);
+    }
+  };
+  
+  const handleUserInteractionEnd = () => {
+    // Resume auto-scroll after 3 seconds of inactivity
+    setTimeout(() => {
+      setIsUserInteracting(false);
+    }, 3000);
+  };
+  
+  const onTouchStart = (e) => {
+    handleUserInteractionStart();
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe && currentCardIndex < displayJobs.length - 1) {
+      handleScroll('right');
+    }
+    
+    if (isRightSwipe && currentCardIndex > 0) {
+      handleScroll('left');
+    }
+    
+    handleUserInteractionEnd();
   };
 
   return (
@@ -160,7 +290,13 @@ const Careers = () => {
           <>
             {/* Mobile view - horizontal scrollable */}
             <div className="md:hidden relative">
-              <div className="overflow-x-auto pb-4" ref={scrollContainerRef}>
+              <div 
+                className="overflow-x-auto pb-4 no-scrollbar" 
+                ref={scrollContainerRef}
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
+              >
                 <div className="flex space-x-4" style={{ minWidth: 'min-content' }}>
                   {displayJobs.map((job) => (
                     <div 
@@ -238,20 +374,20 @@ const Careers = () => {
                   ))}
                 </div>
               </div>
-              <div className="flex justify-between mt-2">
-                <button 
-                  onClick={() => handleScroll('left')}
-                  className="bg-white p-2 rounded-full shadow-md text-blue-600 hover:bg-blue-50"
-                >
-                  <FaArrowLeft size={14} />
-                </button>
-                <button 
-                  onClick={() => handleScroll('right')}
-                  className="bg-white p-2 rounded-full shadow-md text-blue-600 hover:bg-blue-50"
-                >
-                  <FaArrowRight size={14} />
-                </button>
-              </div>
+              {displayJobs.length > 1 && (
+                <div className="flex justify-center mt-4">
+                  {displayJobs.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleDotClick(index)}
+                      className={`mx-1 h-2.5 w-2.5 rounded-full transition-all duration-300 ${
+                        currentCardIndex === index ? 'bg-blue-600 w-4' : 'bg-gray-300 hover:bg-gray-400'
+                      }`}
+                      aria-label={`Go to slide ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
             
             {/* Desktop view - grid layout */}

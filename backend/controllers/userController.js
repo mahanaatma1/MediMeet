@@ -4,6 +4,7 @@ import validator from "validator";
 import userModel from "../models/userModel.js";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
+import reviewModel from "../models/reviewModel.js";
 import { v2 as cloudinary } from 'cloudinary'
 import stripe from "stripe";
 import razorpay from 'razorpay';
@@ -11,6 +12,8 @@ import Job from '../models/jobModel.js';
 import jobApplicationModel from '../models/jobApplicationModel.js';
 import { sendEmail, sendVerificationEmail } from '../utils/sendEmail.js';
 import { getPasswordResetTemplate, getVerificationEmailTemplate } from '../utils/emailTemplates.js';
+import mongoose from 'mongoose';
+import fs from 'fs';
 
 // Gateway Initialize
 const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY)
@@ -241,10 +244,10 @@ const updateProfile = async (req, res) => {
         await userModel.findByIdAndUpdate(userId, { name, phone, address: JSON.parse(address), dob, gender });
 
         if (imageFile) {
-            // upload image to cloudinary
-            const imageUpload = await cloudinary.uploader.upload(imageFile.path, { resource_type: "image" });
-            const imageURL = imageUpload.secure_url;
-
+            // Create the image URL for local storage
+            const imageURL = `/api/user/images/${imageFile.filename}`;
+            
+            // Update the user's image in the database
             await userModel.findByIdAndUpdate(userId, { image: imageURL });
         }
 
@@ -526,11 +529,6 @@ const submitJobApplication = async (req, res) => {
         const { jobId, fullName, email, phone, address, experience, education, coverLetter } = req.body;
         const resumeFile = req.file;
 
-        // upload image to cloudinary
-        const result = await cloudinary.uploader.upload(req.file.path, {
-            folder: "doctors",
-        })
-
         // Validate required fields
         if (!userId || !fullName || !email || !phone || !address || !experience || !education || !resumeFile) {
             return res.status(400).json({ success: false, message: "All fields are required" });
@@ -551,9 +549,9 @@ const submitJobApplication = async (req, res) => {
             });
         }
 
-        // Save resume file locally
-        const resumeUrl = `/uploads/${resumeFile.filename}`;
-
+        // Read the resume file and convert to base64
+        const resumeData = fs.readFileSync(resumeFile.path).toString('base64');
+        
         // Create new application
         const application = new jobApplicationModel({
             userId,
@@ -564,11 +562,17 @@ const submitJobApplication = async (req, res) => {
             address,
             experience,
             education,
-            resumeUrl,
+            resumeData,
+            resumeName: resumeFile.originalname,
+            resumeType: resumeFile.mimetype,
             coverLetter: coverLetter || ""
         });
 
         await application.save();
+        
+        // Delete the temporary file from disk
+        fs.unlinkSync(resumeFile.path);
+        
         res.status(201).json({ 
             success: true, 
             message: "Application submitted successfully" 
@@ -828,6 +832,116 @@ const resetPassword = async (req, res) => {
     }
 };
 
+// API to submit a review for a doctor
+const submitReview = async (req, res) => {
+    try {
+        const { doctorId, appointmentId, rating, reviewText } = req.body;
+        const userId = req.user.id;
+
+        // Verify the appointment exists and belongs to this user
+        const appointment = await appointmentModel.findOne({ 
+            _id: appointmentId,
+            userId: userId,
+            docId: doctorId,
+            status: 'completed' // Only allow reviews for completed appointments
+        });
+
+        if (!appointment) {
+            return res.json({ 
+                success: false, 
+                message: 'You can only review doctors after a completed appointment' 
+            });
+        }
+
+        // Check if a review already exists
+        const existingReview = await reviewModel.findOne({
+            doctorId,
+            userId,
+            appointmentId
+        });
+
+        if (existingReview) {
+            // Update existing review
+            existingReview.rating = rating;
+            existingReview.reviewText = reviewText;
+            await existingReview.save();
+
+            return res.json({ 
+                success: true, 
+                message: 'Review updated successfully',
+                review: existingReview
+            });
+        }
+
+        // Create new review
+        const newReview = new reviewModel({
+            doctorId,
+            userId,
+            appointmentId,
+            rating,
+            reviewText
+        });
+
+        await newReview.save();
+
+        // Update doctor's average rating
+        await updateDoctorRating(doctorId);
+
+        res.json({ 
+            success: true, 
+            message: 'Review submitted successfully',
+            review: newReview
+        });
+    } catch (error) {
+        console.error('Submit review error:', error);
+        res.json({ success: false, message: 'Failed to submit review' });
+    }
+};
+
+// API to get reviews for a doctor
+const getDoctorReviews = async (req, res) => {
+    try {
+        const { doctorId } = req.params;
+        
+        const reviews = await reviewModel.find({ doctorId })
+            .populate('userId', 'name image')
+            .sort({ createdAt: -1 });
+
+        // Calculate average rating
+        const averageRating = await calculateAverageRating(doctorId);
+
+        res.json({ 
+            success: true, 
+            reviews,
+            averageRating,
+            totalReviews: reviews.length
+        });
+    } catch (error) {
+        console.error('Get reviews error:', error);
+        res.json({ success: false, message: 'Failed to get reviews' });
+    }
+};
+
+// Helper function to calculate average rating
+const calculateAverageRating = async (doctorId) => {
+    const result = await reviewModel.aggregate([
+        { $match: { doctorId: mongoose.Types.ObjectId(doctorId) } },
+        { $group: { _id: null, averageRating: { $avg: "$rating" } } }
+    ]);
+
+    return result.length > 0 ? result[0].averageRating : 0;
+};
+
+// Helper function to update doctor's rating
+const updateDoctorRating = async (doctorId) => {
+    const averageRating = await calculateAverageRating(doctorId);
+    
+    // Store the average rating in the doctor model for quick access
+    await doctorModel.findByIdAndUpdate(doctorId, { 
+        averageRating: parseFloat(averageRating.toFixed(1)) 
+    });
+};
+
 export {
     registerUser,
     loginUser,
@@ -850,5 +964,7 @@ export {
     resendVerification,
     forgotPassword,
     verifyResetCode,
-    resetPassword
+    resetPassword,
+    submitReview,
+    getDoctorReviews
 }

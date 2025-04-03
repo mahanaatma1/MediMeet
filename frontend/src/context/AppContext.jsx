@@ -18,21 +18,19 @@ export const AppProvider = ({ children }) => {
 
     // Getting Doctors using API
     const getDoctosData = async () => {
-
         try {
-
             const { data } = await axios.get(backendUrl + '/api/doctor/list')
             if (data.success) {
                 setDoctors(data.doctors)
+                return data.doctors;
             } else {
                 toast.error(data.message)
             }
-
         } catch (error) {
             console.log(error)
             toast.error(error.message)
         }
-
+        return [];
     }
 
     // Getting User Profile using API

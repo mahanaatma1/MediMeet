@@ -12,9 +12,9 @@ const DoctorsList = () => {
 }, [aToken])
 
   return (
-    <div className='m-5 max-h-[90vh] overflow-y-scroll'>
-      <h1 className='text-lg font-medium'>All Doctors</h1>
-      <div className='w-full grid grid-cols-2 sm:flex sm:flex-wrap gap-4 pt-5 gap-y-6'>
+    <div className='m-5 max-h-[90vh] overflow-y-auto custom-scrollbar'>
+      <h1 className='text-lg font-medium mb-4'>All Doctors</h1>
+      <div className='w-full grid grid-cols-2 sm:flex sm:flex-wrap gap-4 gap-y-6'>
         {doctors.map((item, index) => (
           <div className='border border-[#C9D8FF] rounded-xl overflow-hidden cursor-pointer group w-full sm:max-w-56' key={index}>
             <img className='bg-[#EAEFFF] group-hover:bg-primary transition-all duration-500 w-full aspect-square object-cover' src={item.image} alt="" />

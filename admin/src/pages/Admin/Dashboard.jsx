@@ -106,7 +106,7 @@ const Dashboard = () => {
           <div className="flex-shrink-0 w-[280px] bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl shadow-sm overflow-hidden">
             <div className="p-6 flex items-center">
               <div className="bg-amber-100 p-3 rounded-lg mr-4">
-                <span className="text-2xl font-bold text-amber-600">₹</span>
+                <img className="w-10 h-10" src={assets.revenue_icon || ""} alt="Revenue" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-800">{currency}{dashData.adminRevenue}</p>
@@ -191,8 +191,8 @@ const Dashboard = () => {
           </div>
           <div className="bg-gradient-to-r from-amber-500 to-yellow-600 h-1"></div>
           <div className="px-6 py-2 bg-white flex justify-between items-center">
-            <span className="text-xs text-gray-500">Admin Share</span>
-            <span className="text-xs font-medium text-amber-600">20%</span>
+            <span className="text-xs text-gray-500">This Month</span>
+            <span className="text-xs font-medium text-amber-600">{currency}{dashData.monthlyRevenue || 0}</span>
           </div>
         </div>
       </div>
@@ -247,7 +247,7 @@ const Dashboard = () => {
                       src={item.userData.image} 
                       alt={item.userData.name} 
                     />
-                    <div>
+                    <div className="flex-1">
                       <p className="text-sm font-medium text-gray-700">{item.userData.name}</p>
                       <p className="text-xs text-gray-500">Patient</p>
                     </div>
@@ -262,7 +262,7 @@ const Dashboard = () => {
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-gray-600">Payment</p>
-                        <p className="text-sm font-medium text-gray-800">{item.payment ? 'Online' : 'Cash'}</p>
+                        <p className="text-sm font-medium text-gray-800">Online</p>
                       </div>
                     </div>
                   </div>
@@ -305,7 +305,7 @@ const Dashboard = () => {
                   <div className="flex items-center gap-4">
                     <div className="text-right">
                       <p className="font-medium text-gray-800">{currency}{item.amount}</p>
-                      <p className="text-xs text-gray-500">{item.payment ? 'Paid Online' : 'Cash Payment'}</p>
+                      <p className="text-xs text-gray-500">Paid Online</p>
                     </div>
                   </div>
                 </div>

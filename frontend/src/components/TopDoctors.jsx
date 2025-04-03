@@ -34,11 +34,10 @@ const TopDoctors = () => {
                 <div className="w-full px-4 mt-2">
                     <div 
                         ref={sliderRef}
-                        className="flex overflow-x-auto gap-3 pb-3 scrollbar-hide snap-x snap-mandatory"
+                        className="flex overflow-x-auto gap-3 pb-3 no-scrollbar snap-x snap-mandatory"
                         style={{ 
-                            scrollbarWidth: 'none',
-                            msOverflowStyle: 'none',
-                            WebkitOverflowScrolling: 'touch'
+                            WebkitOverflowScrolling: 'touch',
+                            overflowX: 'auto'
                         }}
                     >
                         {doctors.slice(0, 10).map((item, index) => (
@@ -89,14 +88,5 @@ const TopDoctors = () => {
         </div>
     )
 }
-
-// Add CSS to hide scrollbar for WebKit browsers (Chrome, Safari)
-const style = document.createElement('style');
-style.textContent = `
-    .scrollbar-hide::-webkit-scrollbar {
-        display: none;
-    }
-`;
-document.head.appendChild(style);
 
 export default TopDoctors

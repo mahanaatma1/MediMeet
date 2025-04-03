@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
+import reviewModel from "../models/reviewModel.js";
 
 // API for doctor Login 
 const loginDoctor = async (req, res) => {
@@ -91,15 +92,27 @@ const appointmentComplete = async (req, res) => {
 // API to get all doctors list for Frontend
 const doctorList = async (req, res) => {
     try {
-
-        const doctors = await doctorModel.find({}).select(['-password', '-email'])
-        res.json({ success: true, doctors })
-
+        // Get all doctors
+        const doctors = await doctorModel.find({}).select(['-password', '-email']);
+        
+        // Get ratings for all doctors
+        const doctorsWithRatings = await Promise.all(
+            doctors.map(async (doctor) => {
+                const doctorObj = doctor.toObject();
+                const { averageRating, totalReviews } = await reviewModel.getAverageRating(doctor._id);
+                return {
+                    ...doctorObj,
+                    averageRating: averageRating || 0,
+                    totalReviews: totalReviews || 0
+                };
+            })
+        );
+        
+        res.json({ success: true, doctors: doctorsWithRatings });
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.log(error);
+        res.json({ success: false, message: error.message });
     }
-
 }
 
 // API to change doctor availablity for Admin and Doctor Panel
@@ -118,18 +131,25 @@ const changeAvailablity = async (req, res) => {
     }
 }
 
-// API to get doctor profile for  Doctor Panel
+// API to get doctor profile for Doctor Panel
 const doctorProfile = async (req, res) => {
     try {
-
-        const { docId } = req.body
-        const profileData = await doctorModel.findById(docId).select('-password')
-
-        res.json({ success: true, profileData })
-
+        const { docId } = req.body;
+        const profileData = await doctorModel.findById(docId).select('-password');
+        
+        // Get rating information
+        const { averageRating, totalReviews } = await reviewModel.getAverageRating(docId);
+        
+        const profileWithRating = {
+            ...profileData.toObject(),
+            averageRating: averageRating || 0,
+            totalReviews: totalReviews || 0
+        };
+        
+        res.json({ success: true, profileData: profileWithRating });
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.log(error);
+        res.json({ success: false, message: error.message });
     }
 }
 

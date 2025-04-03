@@ -2,16 +2,101 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-* {
-    font-family: Outfit;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+  
+  * {
+    font-family: Outfit, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  
+  /* Better default transitions for interactive elements */
+  a, button {
+    @apply transition-all duration-200;
+  }
+  
+  /* Global heading styles */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-medium text-gray-900;
+  }
+  
+  /* Better selection styling */
+  ::selection {
+    @apply bg-primary-light text-primary;
+  }
 }
 
-.active hr {
-    @apply block
+/* Custom scrollbar styling */
+@layer utilities {
+  /* Hide scrollbar for all browsers */
+  .no-scrollbar {
+    /* For IE and Edge */
+    -ms-overflow-style: none;
+    /* For Firefox */
+    scrollbar-width: none;
+  }
+  
+  /* For Chrome, Safari, and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .custom-scrollbar {
+    @apply overflow-auto;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-1.5 h-1.5;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded-full;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full hover:bg-gray-400;
+  }
+  
+  /* Hide scrollbar by default */
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hidden::-webkit-scrollbar {
+    @apply hidden;
+  }
 }
 
-::-webkit-scrollbar {
-    @apply hidden
+/* Custom utility classes */
+@layer components {
+  /* Improve focus states for accessibility */
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl border border-gray-200 overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-200;
+  }
+  
+  .btn-primary {
+    @apply bg-primary hover:bg-primary-dark text-white font-medium py-2 px-4 rounded-md transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-primary-light hover:bg-primary-light text-primary font-medium py-2 px-4 rounded-md transition-colors;
+  }
+  
+  .btn-outline {
+    @apply border border-gray-300 hover:border-gray-400 text-gray-700 font-medium py-2 px-4 rounded-md transition-colors;
+  }
 }
 
 /* Fix for SVG width/height auto errors */

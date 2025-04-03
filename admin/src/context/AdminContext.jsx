@@ -62,11 +62,7 @@ const AdminContextProvider = (props) => {
     // Getting all appointment data from Database using API
     const getAllAppointments = async () => {
         try {
-            console.log("Fetching appointments with token:", aToken);
-            console.log("Backend URL:", backendUrl);
-            
             const { data } = await axios.get(backendUrl + '/api/admin/appointments', { headers: { atoken: aToken } })
-            console.log("Appointments API response:", data);
             
             if (data.success) {
                 // Ensure all appointments have the required fields

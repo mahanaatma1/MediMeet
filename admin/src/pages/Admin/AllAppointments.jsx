@@ -32,10 +32,10 @@ const AllAppointments = () => {
 
   // Initial data loading
   useEffect(() => {
-    if (aToken) {
+    if (aToken && !dataFetched) {
       fetchData()
     }
-  }, [aToken, fetchData])
+  }, [aToken, fetchData, dataFetched])
 
   // Store appointments in local state to prevent fluctuation
   useEffect(() => {
@@ -206,19 +206,19 @@ const AllAppointments = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
           <p className="text-sm text-gray-500">Total</p>
-          <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
+          <p className="text-2xl font-bold text-gray-800">{stats.total || 0}</p>
         </div>
         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
           <p className="text-sm text-gray-500">Pending</p>
-          <p className="text-2xl font-bold text-blue-600">{stats.pending}</p>
+          <p className="text-2xl font-bold text-blue-600">{stats.pending || 0}</p>
         </div>
         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
           <p className="text-sm text-gray-500">Completed</p>
-          <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
+          <p className="text-2xl font-bold text-green-600">{stats.completed || 0}</p>
         </div>
         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
           <p className="text-sm text-gray-500">Cancelled</p>
-          <p className="text-2xl font-bold text-red-600">{stats.cancelled}</p>
+          <p className="text-2xl font-bold text-red-600">{stats.cancelled || 0}</p>
         </div>
       </div>
 
@@ -266,7 +266,7 @@ const AllAppointments = () => {
                         <p className="text-xs text-gray-500">{item.userData && item.userData.phone ? item.userData.phone : 'N/A'}</p>
                       </div>
                     </div>
-                    <p className='text-gray-600'>{item.userData && item.userData.dob ? calculateAge(item.userData.dob) : 'N/A'}</p>
+                    <p className='text-gray-600'>{item.userData && item.userData.dob && calculateAge(item.userData.dob) ? calculateAge(item.userData.dob) : 'N/A'}</p>
                     <div>
                       <p className="font-medium text-gray-800">{slotDateFormat(item.slotDate)}</p>
                       <p className="text-sm text-gray-500">{item.slotTime}</p>
@@ -286,7 +286,7 @@ const AllAppointments = () => {
                         <p className="text-xs text-gray-500">{item.docData && item.docData.specialization ? item.docData.specialization : 'N/A'}</p>
                       </div>
                     </div>
-                    <p className="font-medium text-gray-800">{currency}{item.amount}</p>
+                    <p className="font-medium text-gray-800">{currency}{item.amount ? item.amount : '0'}</p>
                     <div>
                       {item.cancelled || item.isCompleted ? (
                         getStatusBadge(item)
@@ -321,7 +321,7 @@ const AllAppointments = () => {
                       <div className="flex-1">
                         <p className="font-medium text-gray-800">{item.userData ? item.userData.name : 'Unknown'}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs text-gray-500">Age: {item.userData && item.userData.dob ? calculateAge(item.userData.dob) : 'N/A'}</span>
+                          <span className="text-xs text-gray-500">Age: {item.userData && item.userData.dob && calculateAge(item.userData.dob) ? calculateAge(item.userData.dob) : 'N/A'}</span>
                           <span className="text-xs text-gray-500">•</span>
                           <span className="text-xs text-gray-500">{item.userData && item.userData.phone ? item.userData.phone : 'N/A'}</span>
                         </div>
@@ -347,7 +347,7 @@ const AllAppointments = () => {
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span className="text-gray-600">{currency}{item.amount}</span>
+                        <span className="text-gray-600">{currency}{item.amount ? item.amount : '0'}</span>
                       </div>
                     </div>
 
