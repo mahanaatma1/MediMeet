@@ -543,12 +543,12 @@ const Careers = () => {
       </div>
 
       <div className="bg-gray-50 p-6 rounded-lg shadow-sm">
-        <h2 className="text-2xl font-semibold text-gray-700 mb-4 text-center">How to Apply</h2>
-        <p className="text-gray-600 text-center mb-6">
+        <h2 className="text-2xl font-semibold text-gray-700 mb-4 text-left">How to Apply</h2>
+        <p className="text-gray-600 text-left mb-6">
           To apply for any of the positions listed above, please click the "Apply Now" button on the job listing
           and fill out the application form. Make sure to include your resume and a cover letter.
         </p>
-        <div className="text-center">
+        <div className="text-left">
           <p className="text-gray-700 font-medium">General Inquiries:</p>
           <p className="text-gray-600">careers@medimeet.in | +91-7549334598</p>
         </div>

@@ -569,7 +569,9 @@ const MyAppointments = () => {
                                             className="w-16 h-16 rounded-full object-cover border border-gray-200"
                                         />
                                         <div>
-                                            <h3 className="text-lg font-semibold text-gray-800">Dr. {item.docData.name}</h3>
+                                            <h3 className="text-lg font-semibold text-gray-800">
+                                                {item.docData.name.startsWith("Dr.") ? item.docData.name : `Dr. ${item.docData.name}`}
+                                            </h3>
                                             <p className="text-gray-600">{item.docData.speciality}</p>
                                             <div className="flex items-center mt-1">
                                                 {getStatusBadge(item)}

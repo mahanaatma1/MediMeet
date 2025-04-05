@@ -14,25 +14,30 @@ const sendEmail = async (email, subject, html) => {
         const transporter = nodemailer.createTransport({
             host: process.env.SMTP_HOST,
             port: process.env.SMTP_PORT,
-            secure: false, // true for 465, false for other ports
+            secure: process.env.SMTP_PORT === '465', // true for 465, false for other ports
             auth: {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS,
             },
-        })
+            connectionTimeout: 30000, // 30 seconds timeout
+            greetingTimeout: 30000,
+            socketTimeout: 60000, // 1 minute
+            debug: false, // Disable debug mode
+            logger: false // Disable logger
+        });
 
         // Send the email
-        await transporter.sendMail({
+        const info = await transporter.sendMail({
             from: process.env.SMTP_FROM,
             to: email,
             subject: subject,
             html: html,
-        })
-
-        return true
+        });
+        
+        return true;
     } catch (error) {
-        console.error('Email error:', error)
-        return false
+        console.error('Email error:', error.message);
+        return false;
     }
 }
 

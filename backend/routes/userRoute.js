@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, paymentStripe, verifyStripe, getActiveJobs, checkJobApplication, submitJobApplication, getUserApplications, completeAppointment, googleAuth, verifyEmail, resendVerification, forgotPassword, verifyResetCode, resetPassword } from '../controllers/userController.js';
+import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, paymentStripe, verifyStripe, getActiveJobs, checkJobApplication, submitJobApplication, getUserApplications, completeAppointment, googleAuth, verifyEmail, resendVerification, forgotPassword, verifyResetCode, resetPassword, testEmail } from '../controllers/userController.js';
 import upload from '../middleware/multer.js';
 import authUser from '../middleware/authUser.js';
 import path from 'path';
@@ -101,5 +101,8 @@ userRouter.get("/applications/:applicationId/resume", authUser, async (req, res)
 userRouter.post("/forgot-password", forgotPassword);
 userRouter.post("/verify-reset-code", verifyResetCode);
 userRouter.post("/reset-password", resetPassword);
+
+// Test email route
+userRouter.post("/test-email", testEmail);
 
 export default userRouter;

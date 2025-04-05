@@ -11,7 +11,12 @@ import razorpay from 'razorpay';
 import Job from '../models/jobModel.js';
 import jobApplicationModel from '../models/jobApplicationModel.js';
 import { sendEmail, sendVerificationEmail } from '../utils/sendEmail.js';
-import { getPasswordResetTemplate, getVerificationEmailTemplate } from '../utils/emailTemplates.js';
+import { 
+    getPasswordResetTemplate, 
+    getVerificationEmailTemplate, 
+    getAppointmentBookingTemplate, 
+    getPaymentConfirmationTemplate 
+} from '../utils/emailTemplates.js';
 import mongoose from 'mongoose';
 import fs from 'fs';
 
@@ -304,6 +309,24 @@ const bookAppointment = async (req, res) => {
         // save new slots data in docData
         await doctorModel.findByIdAndUpdate(docId, { slots_booked });
 
+        // Send appointment booking email to user
+        if (userData.email) {
+            try {
+                const emailTemplate = getAppointmentBookingTemplate(newAppointment);
+                // Format doctor name for email subject to avoid "Dr. Dr."
+                const doctorName = docData.name.startsWith("Dr.") ? docData.name : `Dr. ${docData.name}`;
+                sendEmail(
+                    userData.email,
+                    `Appointment Booked with ${doctorName}`,
+                    emailTemplate
+                ).catch(err => {
+                    console.error('Appointment booking email error');
+                });
+            } catch (emailErr) {
+                console.error('Error preparing appointment email');
+            }
+        }
+
         res.json({ success: true, message: 'Appointment Booked' });
     } catch (error) {
         console.log(error);
@@ -402,6 +425,29 @@ const verifyRazorpay = async (req, res) => {
                 doctorShare: doctorShare
             });
             
+            // Fetch updated appointment data for email
+            const updatedAppointment = await appointmentModel.findById(appointmentId);
+            
+            // Send payment confirmation email
+            if (updatedAppointment.userData && updatedAppointment.userData.email) {
+                try {
+                    const emailTemplate = getPaymentConfirmationTemplate(updatedAppointment);
+                    // Format doctor name for email subject to avoid "Dr. Dr."
+                    const doctorName = updatedAppointment.docData.name.startsWith("Dr.") 
+                        ? updatedAppointment.docData.name 
+                        : `Dr. ${updatedAppointment.docData.name}`;
+                    sendEmail(
+                        updatedAppointment.userData.email,
+                        `Payment Confirmed for Appointment with ${doctorName}`,
+                        emailTemplate
+                    ).catch(err => {
+                        console.error('Payment confirmation email error');
+                    });
+                } catch (emailErr) {
+                    console.error('Error preparing payment confirmation email');
+                }
+            }
+            
             res.json({ success: true, message: "Payment Successful" });
         }
         else {
@@ -456,6 +502,7 @@ const paymentStripe = async (req, res) => {
     }
 };
 
+// API to verify stripe payment
 const verifyStripe = async (req, res) => {
     try {
         const { appointmentId, success } = req.body;
@@ -472,6 +519,29 @@ const verifyStripe = async (req, res) => {
                 adminShare: adminShare,
                 doctorShare: doctorShare
             });
+            
+            // Fetch updated appointment data for email
+            const updatedAppointment = await appointmentModel.findById(appointmentId);
+            
+            // Send payment confirmation email
+            if (updatedAppointment.userData && updatedAppointment.userData.email) {
+                try {
+                    const emailTemplate = getPaymentConfirmationTemplate(updatedAppointment);
+                    // Format doctor name for email subject to avoid "Dr. Dr."
+                    const doctorName = updatedAppointment.docData.name.startsWith("Dr.") 
+                        ? updatedAppointment.docData.name 
+                        : `Dr. ${updatedAppointment.docData.name}`;
+                    sendEmail(
+                        updatedAppointment.userData.email,
+                        `Payment Confirmed for Appointment with ${doctorName}`,
+                        emailTemplate
+                    ).catch(err => {
+                        console.error('Payment confirmation email error');
+                    });
+                } catch (emailErr) {
+                    console.error('Error preparing payment confirmation email');
+                }
+            }
             
             return res.json({ success: true, message: 'Payment Successful' });
         }
@@ -942,6 +1012,39 @@ const updateDoctorRating = async (doctorId) => {
     });
 };
 
+// Test API for email sending
+const testEmail = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.json({ success: false, message: 'Email address is required' });
+        }
+
+        console.log(`Attempting to send test email to ${email}`);
+        
+        // Send a simple test email
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+                <h2 style="color: #4f46e5;">MediMeet Email Test</h2>
+                <p>This is a test email from MediMeet to verify that email sending is working correctly.</p>
+                <p>If you received this message, it means your email configuration is working!</p>
+                <p>Time sent: ${new Date().toLocaleString()}</p>
+            </div>
+        `;
+        
+        const result = await sendEmail(email, 'MediMeet Email Test', html);
+        
+        if (result) {
+            res.json({ success: true, message: 'Test email sent successfully' });
+        } else {
+            res.json({ success: false, message: 'Failed to send test email' });
+        }
+    } catch (error) {
+        console.error('Test email error:', error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
 export {
     registerUser,
     loginUser,
@@ -966,5 +1069,6 @@ export {
     verifyResetCode,
     resetPassword,
     submitReview,
-    getDoctorReviews
+    getDoctorReviews,
+    testEmail
 }
