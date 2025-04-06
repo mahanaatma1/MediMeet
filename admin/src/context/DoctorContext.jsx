@@ -108,7 +108,30 @@ const DoctorContextProvider = (props) => {
             console.log(error)
             toast.error(error.message)
         }
+    }
 
+    // Get doctor's prescriptions
+    const [prescriptions, setPrescriptions] = useState([])
+    const [isLoadingPrescriptions, setIsLoadingPrescriptions] = useState(false)
+    
+    const getPrescriptions = async () => {
+        try {
+            setIsLoadingPrescriptions(true)
+            const { data } = await axios.get(`${backendUrl}/api/prescription/doctor`, { 
+                headers: { dtoken: dToken } 
+            })
+            
+            if (data.success) {
+                setPrescriptions(data.data)
+            } else {
+                toast.error(data.message || 'Failed to fetch prescriptions')
+            }
+        } catch (error) {
+            console.error('Error fetching prescriptions:', error)
+            toast.error(error.response?.data?.message || 'Failed to fetch prescriptions')
+        } finally {
+            setIsLoadingPrescriptions(false)
+        }
     }
 
     const value = {
@@ -120,6 +143,9 @@ const DoctorContextProvider = (props) => {
         dashData, getDashData,
         profileData, setProfileData,
         getProfileData,
+        prescriptions, setPrescriptions,
+        isLoadingPrescriptions,
+        getPrescriptions
     }
 
     return (

@@ -4,9 +4,11 @@ import { AppContext } from '../../context/AppContext'
 import { assets } from '../../assets/assets'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
+import axios from 'axios'
+import { FaVideo, FaCheck, FaTimes } from 'react-icons/fa'
 
 const DoctorAppointments = () => {
-  const { dToken, appointments, getAppointments, cancelAppointment, completeAppointment } = useContext(DoctorContext)
+  const { dToken, appointments, getAppointments, cancelAppointment, completeAppointment, backendUrl } = useContext(DoctorContext)
   const { slotDateFormat, calculateAge, currency } = useContext(AppContext)
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('all') // 'all', 'upcoming', 'completed', 'cancelled'
@@ -48,7 +50,7 @@ const DoctorAppointments = () => {
       const [day, month, year] = dateParts.map(Number);
       
       // Handle time format with AM/PM
-      let hours, minutes;
+      let timeHours, timeMinutes;
       if (slotTime.toLowerCase().includes('am') || slotTime.toLowerCase().includes('pm')) {
         // Time format like "01:30 pm" or "1:30 am"
         const timeStr = slotTime.toLowerCase();
@@ -60,16 +62,16 @@ const DoctorAppointments = () => {
           return new Date(); // Return current date as fallback
         }
         
-        hours = parseInt(timeComponents[0], 10);
-        minutes = parseInt(timeComponents[1], 10);
+        timeHours = parseInt(timeComponents[0], 10);
+        timeMinutes = parseInt(timeComponents[1], 10);
         
         // Convert to 24-hour format if PM
-        if (isPM && hours < 12) {
-          hours += 12;
+        if (isPM && timeHours < 12) {
+          timeHours += 12;
         }
         // Handle 12 AM special case
-        if (!isPM && hours === 12) {
-          hours = 0;
+        if (!isPM && timeHours === 12) {
+          timeHours = 0;
         }
       } else {
         // Regular time format like "13:30"
@@ -79,18 +81,18 @@ const DoctorAppointments = () => {
           return new Date(); // Return current date as fallback
         }
         
-        [hours, minutes] = timeParts.map(Number);
+        [timeHours, timeMinutes] = timeParts.map(Number);
       }
       
       // Validate numeric values
-      if (isNaN(day) || isNaN(month) || isNaN(year) || isNaN(hours) || isNaN(minutes)) {
+      if (isNaN(day) || isNaN(month) || isNaN(year) || isNaN(timeHours) || isNaN(timeMinutes)) {
         console.error(`Doctor: Non-numeric values in date or time: ${slotDate} ${slotTime}`);
         return new Date(); // Return current date as fallback
       }
       
       // IMPORTANT: In our system, the month is already 0-indexed in the database
       // so we don't need to subtract 1 from the month value
-      const appointmentDate = new Date(year, month, day, hours, minutes);
+      const appointmentDate = new Date(year, month, day, timeHours, timeMinutes);
       
       // Check if date is valid
       if (isNaN(appointmentDate.getTime())) {
@@ -124,33 +126,33 @@ const DoctorAppointments = () => {
       const [day, month, year] = dateParts.map(Number);
       
       // Handle time format with AM/PM
-      let hours, minutes;
+      let timeHours, timeMinutes;
       if (slotTime.toLowerCase().includes('am') || slotTime.toLowerCase().includes('pm')) {
         // Time format like "01:30 pm" or "1:30 am"
         const timeStr = slotTime.toLowerCase();
         const isPM = timeStr.includes('pm');
         const timeComponents = timeStr.replace(/\s*[ap]m\s*$/i, '').split(':');
         
-        hours = parseInt(timeComponents[0], 10);
-        minutes = parseInt(timeComponents[1], 10);
+        timeHours = parseInt(timeComponents[0], 10);
+        timeMinutes = parseInt(timeComponents[1], 10);
         
         // Convert to 24-hour format if PM
-        if (isPM && hours < 12) {
-          hours += 12;
+        if (isPM && timeHours < 12) {
+          timeHours += 12;
         }
         // Handle 12 AM special case
-        if (!isPM && hours === 12) {
-          hours = 0;
+        if (!isPM && timeHours === 12) {
+          timeHours = 0;
         }
       } else {
         // Regular time format like "13:30"
-        [hours, minutes] = slotTime.split(':').map(Number);
+        [timeHours, timeMinutes] = slotTime.split(':').map(Number);
       }
       
       // Create appointment date object
       // IMPORTANT: In our system, the month is already 0-indexed in the database
       // so we don't need to subtract 1 from the month value
-      const appointmentTime = new Date(year, month, day, hours, minutes, 0, 0);
+      const appointmentTime = new Date(year, month, day, timeHours, timeMinutes, 0, 0);
       
       // Validate the appointment time to ensure it's a valid date
       if (isNaN(appointmentTime.getTime())) {
@@ -210,168 +212,85 @@ const DoctorAppointments = () => {
       const [day, month, year] = dateParts.map(Number);
       
       // Handle time format with AM/PM
-      let hours, minutes;
+      let timeHours, timeMinutes;
       if (slotTime.toLowerCase().includes('am') || slotTime.toLowerCase().includes('pm')) {
         // Time format like "01:30 pm" or "1:30 am"
         const timeStr = slotTime.toLowerCase();
         const isPM = timeStr.includes('pm');
         const timeComponents = timeStr.replace(/\s*[ap]m\s*$/i, '').split(':');
         
-        hours = parseInt(timeComponents[0], 10);
-        minutes = parseInt(timeComponents[1], 10);
+        timeHours = parseInt(timeComponents[0], 10);
+        timeMinutes = parseInt(timeComponents[1], 10);
         
         // Convert to 24-hour format if PM
-        if (isPM && hours < 12) {
-          hours += 12;
+        if (isPM && timeHours < 12) {
+          timeHours += 12;
         }
         // Handle 12 AM special case
-        if (!isPM && hours === 12) {
-          hours = 0;
+        if (!isPM && timeHours === 12) {
+          timeHours = 0;
         }
       } else {
         // Regular time format like "13:30"
-        [hours, minutes] = slotTime.split(':').map(Number);
+        [timeHours, timeMinutes] = slotTime.split(':').map(Number);
       }
       
       // Create appointment date object
       // IMPORTANT: In our system, the month is already 0-indexed in the database
       // so we don't need to subtract 1 from the month value
-      const appointmentTime = new Date(year, month, day, hours, minutes, 0, 0);
+      const appointmentTime = new Date(year, month, day, timeHours, timeMinutes, 0, 0);
+      
+      // Validate appointment time 
+      if (isNaN(appointmentTime.getTime())) {
+        console.error(`Doctor: Invalid appointment time for ${slotDate} ${slotTime}`);
+        return "Soon"; // Return a generic message for invalid time
+      }
       
       // Use currentTime state variable for more reactive updates
       const now = currentTime;
       
-      // Validate the appointment time to ensure it's a valid date
-      if (isNaN(appointmentTime.getTime())) {
-        console.error(`Doctor: Invalid appointment time for ${slotDate} ${slotTime}`);
-        return "Soon"; // Return a user-friendly message instead of showing NaN
+      // Check if appointment time has passed
+      if (appointmentTime.getTime() < now.getTime()) {
+        if (isAppointmentTimeNow(slotDate, slotTime)) {
+          return "Now"; // Appointment is happening now (within the 30-minute window)
+        }
+        return "Overdue"; // Appointment time has passed
       }
       
-      // Create the latest join time (appointment time + 30 minutes)
-      const latestJoinTime = new Date(appointmentTime);
-      latestJoinTime.setMinutes(latestJoinTime.getMinutes() + 30);
-      
-      // Get timestamps for precise comparison
-      const appointmentTimestamp = appointmentTime.getTime();
-      const nowTimestamp = now.getTime();
-      const latestTimestamp = latestJoinTime.getTime();
-      
-      // First check if this is a future date (year, month, day comparison)
-      const isFutureDate = 
-          appointmentTime.getFullYear() > now.getFullYear() || 
-          (appointmentTime.getFullYear() === now.getFullYear() && 
-              (appointmentTime.getMonth() > now.getMonth() || 
-                  (appointmentTime.getMonth() === now.getMonth() && 
-                      appointmentTime.getDate() > now.getDate())));
-      
-      // If it's a future date, we know it's not "Appointment time passed"
-      if (isFutureDate) {
-          // Calculate time difference in milliseconds
-          const diffMs = appointmentTimestamp - nowTimestamp;
-          
-          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-          const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-          const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-          const diffSeconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-          
-          let timeRemaining;
-          if (diffDays > 0) {
-              timeRemaining = `${diffDays}d ${diffHours}h ${diffMinutes}m`;
-          } else if (diffHours > 0) {
-              timeRemaining = `${diffHours}h ${diffMinutes}m`;
-          } else if (diffMinutes > 0) {
-              timeRemaining = `${diffMinutes}m ${diffSeconds}s`;
-          } else {
-              timeRemaining = `${diffSeconds}s`;
-          }
-          
-          return timeRemaining;
-      }
-      
-      // Check if the appointment is today (same year, month, and day)
-      const isToday = 
-          appointmentTime.getFullYear() === now.getFullYear() && 
-          appointmentTime.getMonth() === now.getMonth() && 
-          appointmentTime.getDate() === now.getDate();
-      
-      // For same-day appointments, use the more precise timestamp comparison
-      // Check if we're within the appointment window (from start time to 30 minutes after)
-      if (isToday && nowTimestamp >= appointmentTimestamp && nowTimestamp <= latestTimestamp) {
-        return "Join now";
-      }
-      
-      // Check if appointment time has passed (more than 30 minutes after start time)
-      if (isToday && nowTimestamp > latestTimestamp) {
-        return "Appointment time passed";
-      }
-      
-      // Check if the appointment date is in the past (before today)
-      const isPastDate = 
-          appointmentTime.getFullYear() < now.getFullYear() || 
-          (appointmentTime.getFullYear() === now.getFullYear() && 
-              (appointmentTime.getMonth() < now.getMonth() || 
-                  (appointmentTime.getMonth() === now.getMonth() && 
-                      appointmentTime.getDate() < now.getDate())));
-      
-      if (isPastDate) {
-          return "Appointment time passed";
-      }
-      
-      // If we're here, the appointment is today but in the future
       // Calculate time difference in milliseconds
-      const diffMs = appointmentTimestamp - nowTimestamp;
+      const timeDiff = appointmentTime.getTime() - now.getTime();
       
-      // Ensure we have a positive time difference
-      if (diffMs <= 0) {
-        return "Join now";
-      }
+      // Calculate days, hours, and minutes
+      const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const mins = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
       
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-      const diffSeconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-      
-      // Check for NaN values in any time component
-      if (isNaN(diffDays) || isNaN(diffHours) || isNaN(diffMinutes) || isNaN(diffSeconds)) {
-        console.error(`Doctor: NaN detected in time components for ${slotDate} ${slotTime}`);
-        return "Soon"; // Return a user-friendly message instead of showing NaN
-      }
-      
-      let timeRemaining;
-      if (diffDays > 0) {
-        timeRemaining = `${diffDays}d ${diffHours}h ${diffMinutes}m`;
-      } else if (diffHours > 0) {
-        timeRemaining = `${diffHours}h ${diffMinutes}m`;
-      } else if (diffMinutes > 0) {
-        timeRemaining = `${diffMinutes}m ${diffSeconds}s`;
+      // Format the time remaining based on how much time is left
+      if (days > 0) {
+        return `${days}d ${hours}h`;
+      } else if (hours > 0) {
+        return `${hours}h ${mins}m`;
+      } else if (mins > 0) {
+        return `${mins} min`;
       } else {
-        timeRemaining = `${diffSeconds}s`;
+        return "Less than 1 min";
       }
-      
-      return timeRemaining;
     } catch (error) {
       console.error(`Doctor: Error calculating time remaining:`, error);
-      return "Soon";
+      return "Soon"; // Return a generic message in case of error
     }
   }
-  
-  // Filter appointments based on active tab
-  const filteredAppointments = appointments.filter(appointment => {
-    if (activeTab === 'all') return true
-    if (activeTab === 'upcoming') return !appointment.cancelled && !appointment.isCompleted
-    if (activeTab === 'completed') return appointment.isCompleted
-    if (activeTab === 'cancelled') return appointment.cancelled
-    return true
-  })
   
   // Get status badge based on appointment status
   const getStatusBadge = (appointment) => {
     if (appointment.cancelled) {
-      return <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">Cancelled</span>
+      return <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">Cancelled</span>
     } else if (appointment.isCompleted) {
-      return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Completed</span>
+      return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">Completed</span>
+    } else if (isAppointmentTimeNow(appointment.slotDate, appointment.slotTime)) {
+      return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium animate-pulse">Ongoing</span>
     } else {
-      return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Upcoming</span>
+      return <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">Scheduled</span>
     }
   }
   
@@ -384,18 +303,28 @@ const DoctorAppointments = () => {
   
   // Handle appointment completion with confirmation
   const handleCompleteAppointment = (id) => {
-    if (window.confirm('Are you sure you want to mark this appointment as completed?')) {
+    if (window.confirm('Mark this appointment as completed?')) {
       completeAppointment(id)
     }
   }
 
+  // Filter appointments based on active tab
+  const filteredAppointments = appointments.filter(item => {
+    // Filter by tab
+    if (activeTab === 'all') return true
+    if (activeTab === 'upcoming') return !item.isCompleted && !item.cancelled
+    if (activeTab === 'completed') return item.isCompleted && !item.cancelled
+    if (activeTab === 'cancelled') return item.cancelled
+    return true
+  })
+
   return (
-    <div className='w-full max-w-7xl mx-auto px-4 py-6'>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-        <h1 className='text-2xl font-bold text-gray-800 mb-4 sm:mb-0'>Appointments</h1>
-        
-        {/* Filter tabs */}
-        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+    <div className='bg-white shadow rounded-lg p-6'>
+      <h1 className='text-2xl font-bold mb-6'>My Appointments</h1>
+      
+      {/* Filter tabs */}
+      <div className="mb-6 overflow-x-auto">
+        <div className="bg-gray-100 inline-flex p-1 rounded-md">
           <button 
             onClick={() => setActiveTab('all')}
             className={`px-3 py-2 text-sm font-medium rounded-md ${activeTab === 'all' ? 'bg-white shadow-sm text-primary' : 'text-gray-600 hover:text-gray-900'}`}
@@ -445,7 +374,7 @@ const DoctorAppointments = () => {
               <div className='grid grid-cols-[0.5fr_2fr_1fr_1fr_2fr_1fr_1.5fr] gap-1 items-center text-gray-600 py-4 px-6 border-b hover:bg-gray-50 transition-colors' key={index}>
                 <p>{index + 1}</p>
                 <div className='flex items-center gap-3'>
-                  <img src={item.userData.image} className='w-10 h-10 rounded-full object-cover border' alt={item.userData.name} /> 
+                  <img src={item.userData.image || assets.avatar} className='w-10 h-10 rounded-full object-cover border' alt={item.userData.name} /> 
                   <div>
                     <p className="font-medium text-gray-800">{item.userData.name}</p>
                     <p className="text-xs text-gray-500">{item.userData.email}</p>
@@ -486,7 +415,7 @@ const DoctorAppointments = () => {
                 {item.cancelled ? (
                   <p className='text-red-500 text-sm font-medium'>Cancelled</p>
                 ) : item.isCompleted ? (
-                  <p className='text-green-600 text-sm font-medium'>Completed</p>
+                  <p className='text-green-500 text-sm font-medium'>Completed</p>
                 ) : (
                   <div className='flex gap-2'>
                     {/* Join meeting button - only active at appointment time */}
@@ -506,9 +435,7 @@ const DoctorAppointments = () => {
                             : 'Video consultation will be available at the scheduled time'
                         }
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
+                        <FaVideo className="h-5 w-5" />
                       </button>
                     )}
                     <button 
@@ -516,18 +443,14 @@ const DoctorAppointments = () => {
                       className="p-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
                       title="Mark as completed"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
+                      <FaCheck className="h-5 w-5" />
                     </button>
                     <button 
                       onClick={() => handleCancelAppointment(item._id)}
                       className="p-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
                       title="Cancel appointment"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      <FaTimes className="h-5 w-5" />
                     </button>
                   </div>
                 )}
@@ -549,7 +472,7 @@ const DoctorAppointments = () => {
               <div className='p-4'>
                 <div className="flex justify-between items-start mb-3">
                   <div className='flex items-center gap-3'>
-                    <img src={item.userData.image} className='w-12 h-12 rounded-full object-cover border' alt={item.userData.name} /> 
+                    <img src={item.userData.image || assets.avatar} className='w-12 h-12 rounded-full object-cover border' alt={item.userData.name} /> 
                     <div>
                       <p className="font-medium text-gray-800">{item.userData.name}</p>
                       <p className="text-xs text-gray-500">Age: {calculateAge(item.userData.dob)}</p>
@@ -589,7 +512,12 @@ const DoctorAppointments = () => {
                   </div>
                 </div>
                 
-                {!item.cancelled && !item.isCompleted && (
+                {/* Action buttons */}
+                {item.cancelled ? (
+                  <p className='text-red-500 text-sm font-medium my-2'>Cancelled</p>
+                ) : item.isCompleted ? (
+                  <p className='text-green-500 text-sm font-medium my-2'>Completed</p>
+                ) : (
                   <div className="flex gap-2 mt-4">
                     {/* Join meeting button - only active at appointment time */}
                     {item.payment && (
@@ -603,9 +531,7 @@ const DoctorAppointments = () => {
                         }`}
                         disabled={!isAppointmentTimeNow(item.slotDate, item.slotTime)}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
+                        <FaVideo className="h-4 w-4 mr-1" />
                         {isAppointmentTimeNow(item.slotDate, item.slotTime) ? 'Join' : 'Join'}
                       </button>
                     )}
@@ -613,18 +539,14 @@ const DoctorAppointments = () => {
                       onClick={() => handleCompleteAppointment(item._id)}
                       className="flex items-center px-3 py-1.5 bg-green-100 text-green-700 rounded-md text-sm hover:bg-green-200 transition-colors"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
+                      <FaCheck className="h-4 w-4 mr-1" />
                       Complete
                     </button>
                     <button 
                       onClick={() => handleCancelAppointment(item._id)}
                       className="flex items-center px-3 py-1.5 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      <FaTimes className="h-4 w-4 mr-1" />
                       Cancel
                     </button>
                   </div>

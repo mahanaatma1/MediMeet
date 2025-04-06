@@ -3,7 +3,7 @@ import { assets } from '../assets/assets'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { DoctorContext } from '../context/DoctorContext'
 import { AdminContext } from '../context/AdminContext'
-import { FaBriefcase, FaFileAlt, FaSignOutAlt } from 'react-icons/fa'
+import { FaBriefcase, FaFileAlt, FaSignOutAlt, FaPrescriptionBottle } from 'react-icons/fa'
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -55,6 +55,10 @@ const Sidebar = () => {
         <NavLink to={'/doctor-appointments'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
           <img className='min-w-5' src={assets.appointment_icon} alt='' />
           <p className='hidden md:block'>Appointments</p>
+        </NavLink>
+        <NavLink to={'/doctor-prescriptions'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <FaPrescriptionBottle className='min-w-5' />
+          <p className='hidden md:block'>Prescriptions</p>
         </NavLink>
         <NavLink to={'/doctor-profile'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
           <img className='min-w-5' src={assets.people_icon} alt='' />

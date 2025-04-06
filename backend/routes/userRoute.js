@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, paymentStripe, verifyStripe, getActiveJobs, checkJobApplication, submitJobApplication, getUserApplications, completeAppointment, googleAuth, verifyEmail, resendVerification, forgotPassword, verifyResetCode, resetPassword, testEmail } from '../controllers/userController.js';
+import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, paymentStripe, verifyStripe, getActiveJobs, checkJobApplication, submitJobApplication, getUserApplications, completeAppointment, googleAuth, verifyEmail, resendVerification, forgotPassword, verifyResetCode, resetPassword, testEmail, getJobById } from '../controllers/userController.js';
 import upload from '../middleware/multer.js';
 import authUser from '../middleware/authUser.js';
 import path from 'path';
@@ -52,6 +52,7 @@ userRouter.post("/verifyStripe", authUser, verifyStripe)
 userRouter.get("/jobs", getActiveJobs)
 
 // Job application routes
+userRouter.get("/jobs/:jobId", getJobById)
 userRouter.get("/jobs/:jobId/check-application", authUser, checkJobApplication)
 userRouter.post("/jobs/:jobId/apply", authUser, upload.single('resume'), submitJobApplication)
 userRouter.get("/my-applications", authUser, getUserApplications)
@@ -104,5 +105,28 @@ userRouter.post("/reset-password", resetPassword);
 
 // Test email route
 userRouter.post("/test-email", testEmail);
+
+// Add a new endpoint to get user details by ID
+userRouter.get("/:userId", authUser, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        // Find the user
+        const user = await userModel.findById(userId, { password: 0 }); // Exclude password
+        
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        
+        // Return user data
+        res.json({ 
+            success: true, 
+            userData: user
+        });
+    } catch (error) {
+        console.error('Error retrieving user details:', error);
+        res.status(500).json({ success: false, message: "Failed to retrieve user details" });
+    }
+});
 
 export default userRouter;

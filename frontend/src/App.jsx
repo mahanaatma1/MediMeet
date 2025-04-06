@@ -8,6 +8,7 @@ import Contact from './pages/Contact'
 import Appointment from './pages/Appointment'
 import MyAppointments from './pages/MyAppointments'
 import MyProfile from './pages/MyProfile'
+import MyPrescriptions from './pages/MyPrescriptions'
 import Footer from './components/Footer'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -17,6 +18,8 @@ import PrivacyPolicy from './pages/PrivacyPolicy'
 import Careers from './pages/Careers'
 import MyApplications from './components/MyApplications'
 import MeetingRoom from './pages/MeetingRoom'
+import PrescriptionDetails from './pages/PrescriptionDetails'
+import JobDetails from './pages/JobDetails'
 
 const App = () => {
   return (
@@ -34,10 +37,13 @@ const App = () => {
           <Route path='/contact' element={<Contact />} />
           <Route path='/appointment/:docId' element={<Appointment />} />
           <Route path='/my-appointments' element={<MyAppointments />} />
+          <Route path='/my-prescriptions' element={<MyPrescriptions />} />
+          <Route path='/my-prescriptions/:prescriptionId' element={<PrescriptionDetails />} />
           <Route path='/my-profile' element={<MyProfile />} />
           <Route path='/verify' element={<Verify />} />
           <Route path='/privacy-policy' element={<PrivacyPolicy />} />
           <Route path='/careers' element={<Careers />} />
+          <Route path='/careers/:jobId' element={<JobDetails />} />
           <Route path='/my-applications' element={<MyApplications />} />
           <Route path='/meeting/:appointmentId' element={<MeetingRoom />} />
         </Routes>

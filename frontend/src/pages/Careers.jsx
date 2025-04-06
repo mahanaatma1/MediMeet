@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { assets } from '../assets/assets';
 import axios from 'axios';
-import JobApplicationForm from '../components/JobApplicationForm';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { toast } from 'react-hot-toast';
@@ -11,9 +10,6 @@ const Careers = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedJob, setSelectedJob] = useState(null);
-  const [showApplicationForm, setShowApplicationForm] = useState(false);
-  const [scrollPosition, setScrollPosition] = useState(0);
   const [hoveredJob, setHoveredJob] = useState(null);
   const [expandedSections, setExpandedSections] = useState({});
   const navigate = useNavigate();
@@ -46,13 +42,7 @@ const Careers = () => {
   }, []);
 
   const handleApplyClick = (job) => {
-    if (!token) {
-      toast.error('Please login to apply for jobs');
-      navigate('/login');
-      return;
-    }
-    setSelectedJob(job);
-    setShowApplicationForm(true);
+    navigate(`/careers/${job._id || job.id}`);
   };
 
   // Fallback job listings in case API fails
@@ -514,9 +504,9 @@ const Careers = () => {
                         </div>
                         <button 
                           onClick={() => handleApplyClick(job)}
-                          className="bg-blue-600 text-white px-4 py-1.5 rounded-full hover:bg-blue-700 transition-colors duration-300 flex items-center gap-1.5 text-sm group"
+                          className="bg-blue-600 text-white px-4 py-1.5 rounded-full hover:bg-blue-700 transition-colors duration-300 flex items-center gap-1.5 text-sm"
                         >
-                          <FaBriefcase className="text-xs group-hover:rotate-12 transition-transform" />
+                          <FaBriefcase className="text-xs" />
                           Apply
                         </button>
                       </div>
@@ -553,16 +543,6 @@ const Careers = () => {
           <p className="text-gray-600">careers@medimeet.in | +91-7549334598</p>
         </div>
       </div>
-
-      {showApplicationForm && selectedJob && (
-        <JobApplicationForm
-          jobId={selectedJob._id || selectedJob.id}
-          onClose={() => {
-            setShowApplicationForm(false);
-            setSelectedJob(null);
-          }}
-        />
-      )}
     </div>
   );
 };

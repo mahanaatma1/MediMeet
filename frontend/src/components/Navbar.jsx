@@ -127,6 +127,7 @@ const Navbar = () => {
                   <div className='min-w-48 bg-white rounded-lg shadow-dropdown border border-gray-100 flex flex-col overflow-hidden'>
                     <p onClick={() => navigate('/my-profile')} className='px-4 py-3 hover:bg-primary-50 text-sm transition-colors cursor-pointer'>My Profile</p>
                     <p onClick={() => navigate('/my-appointments')} className='px-4 py-3 hover:bg-primary-50 text-sm transition-colors cursor-pointer'>My Appointments</p>
+                    <p onClick={() => navigate('/my-prescriptions')} className='px-4 py-3 hover:bg-primary-50 text-sm transition-colors cursor-pointer'>My Prescriptions</p>
                     <p onClick={() => navigate('/my-applications')} className='px-4 py-3 hover:bg-primary-50 text-sm transition-colors cursor-pointer'>My Job Applications</p>
                     <p onClick={logout} className='px-4 py-3 hover:bg-danger-500 hover:text-white text-sm transition-colors cursor-pointer'>Logout</p>
                   </div>
@@ -212,6 +213,11 @@ const Navbar = () => {
                     `px-5 py-3 text-base font-medium ${isActive ? 'text-primary-600 bg-primary-50' : 'text-gray-700'}`
                   }>
                     MY APPOINTMENTS
+                  </NavLink>
+                  <NavLink to='/my-prescriptions' className={({isActive}) => 
+                    `px-5 py-3 text-base font-medium ${isActive ? 'text-primary-600 bg-primary-50' : 'text-gray-700'}`
+                  }>
+                    MY PRESCRIPTIONS
                   </NavLink>
                   <NavLink to='/my-applications' className={({isActive}) => 
                     `px-5 py-3 text-base font-medium ${isActive ? 'text-primary-600 bg-primary-50' : 'text-gray-700'}`

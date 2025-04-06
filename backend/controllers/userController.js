@@ -564,6 +564,24 @@ const getActiveJobs = async (req, res) => {
     }
 };
 
+// Get job by ID for users
+const getJobById = async (req, res) => {
+    try {
+        const { jobId } = req.params;
+        
+        const job = await Job.findById(jobId);
+        
+        if (!job) {
+            return res.status(404).json({ success: false, message: "Job not found" });
+        }
+        
+        res.status(200).json({ success: true, job });
+    } catch (error) {
+        console.error("Error getting job by ID:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // Check if user has already applied for a job
 const checkJobApplication = async (req, res) => {
     try {
@@ -1058,6 +1076,7 @@ export {
     paymentStripe,
     verifyStripe,
     getActiveJobs,
+    getJobById,
     checkJobApplication,
     submitJobApplication,
     getUserApplications,

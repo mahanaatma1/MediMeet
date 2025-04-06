@@ -4,6 +4,7 @@ import { AppContext } from '../context/AppContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 import { assets } from '../assets/assets'
+import PrescriptionView from '../components/PrescriptionView'
 
 const MyAppointments = () => {
     const { backendUrl, token, getDoctosData } = useContext(AppContext)
@@ -14,6 +15,12 @@ const MyAppointments = () => {
     const [activeTab, setActiveTab] = useState('all') // 'all', 'upcoming', 'completed', 'cancelled'
     const [paymentId, setPaymentId] = useState(null)
     const [currentTime, setCurrentTime] = useState(new Date())
+    
+    // Prescription viewing state
+    const [showPrescriptionView, setShowPrescriptionView] = useState(false)
+    const [selectedAppointment, setSelectedAppointment] = useState(null)
+    const [prescription, setPrescription] = useState(null)
+    const [loadingPrescription, setLoadingPrescription] = useState(false)
 
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -357,6 +364,19 @@ const MyAppointments = () => {
             const { data } = await axios.get(backendUrl + '/api/user/appointments', { 
                 headers: { token } 
             })
+            
+            // Debug: Log appointments with prescription information
+            console.log("Fetched appointments with prescription info:", 
+                data.appointments.map(app => ({
+                    id: app._id,
+                    date: app.slotDate,
+                    doctorName: app.docData.name,
+                    hasPrescription: app.hasPrescription,
+                    prescriptionCreatedAt: app.prescriptionCreatedAt,
+                    isCompleted: app.isCompleted
+                }))
+            );
+            
             setAppointments(data.appointments.reverse())
         } catch (error) {
             console.log(error)
@@ -463,6 +483,52 @@ const MyAppointments = () => {
         }
     }
 
+    // View prescription
+    const handleViewPrescription = async (appointment) => {
+        setSelectedAppointment(appointment)
+        setLoadingPrescription(true)
+        
+        console.log("Attempting to view prescription for appointment:", {
+            id: appointment._id,
+            hasPrescription: appointment.hasPrescription,
+            isCompleted: appointment.isCompleted
+        });
+        
+        try {
+            const response = await axios.get(
+                `${backendUrl}/api/prescription/appointment/${appointment._id}`,
+                { headers: { token } }
+            )
+            
+            console.log("Prescription API response:", response.data);
+            
+            if (response.data.success) {
+                setPrescription(response.data.data)
+                setShowPrescriptionView(true)
+            } else {
+                toast.error(response.data.message || 'No prescription found')
+                console.error("Prescription error:", response.data.message);
+            }
+        } catch (error) {
+            console.error('Error fetching prescription:', error)
+            toast.error(error.response?.data?.message || 'Failed to fetch prescription')
+        } finally {
+            setLoadingPrescription(false)
+        }
+    }
+    
+    const handleClosePrescriptionView = () => {
+        setShowPrescriptionView(false)
+        setPrescription(null)
+        setSelectedAppointment(null)
+    }
+    
+    // Check if appointment has a prescription
+    const hasPrescription = (appointment) => {
+        // Explicitly check for the hasPrescription field being true
+        return appointment && appointment.hasPrescription === true;
+    }
+
     // Update current time more frequently for accurate countdown
     useEffect(() => {
         // Update every second for more accurate countdown
@@ -501,6 +567,11 @@ const MyAppointments = () => {
         }
     }
 
+    // Add a helper function to navigate to prescriptions
+    const navigateToPrescriptions = () => {
+        navigate('/my-prescriptions');
+    }
+
     if (loading) {
         return (
             <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -515,6 +586,19 @@ const MyAppointments = () => {
     return (
         <div className="container mx-auto px-4 py-8 max-w-6xl">
             <h1 className="text-2xl font-bold text-gray-800 mb-6">My Appointments</h1>
+            
+            {/* Add View My Prescriptions button */}
+            <div className="mb-6 flex justify-end">
+                <button 
+                    onClick={navigateToPrescriptions}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    View All Prescriptions
+                </button>
+            </div>
             
             {/* Filter tabs */}
             <div className="flex overflow-x-auto pb-2 mb-6">
@@ -575,6 +659,15 @@ const MyAppointments = () => {
                                             <p className="text-gray-600">{item.docData.speciality}</p>
                                             <div className="flex items-center mt-1">
                                                 {getStatusBadge(item)}
+                                                {/* Prescription badge if available */}
+                                                {hasPrescription(item) && (
+                                                    <span className="ml-2 px-2 py-1 text-xs font-medium bg-blue-500 text-white rounded-full flex items-center">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                        </svg>
+                                                        Prescription
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -661,6 +754,26 @@ const MyAppointments = () => {
                                         </>
                                     )}
                                     
+                                    {/* View Prescription button */}
+                                    {item.isCompleted && hasPrescription(item) && (
+                                        <button 
+                                            onClick={() => handleViewPrescription(item)}
+                                            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center"
+                                            disabled={loadingPrescription}
+                                        >
+                                            {loadingPrescription ? (
+                                                <span className="animate-pulse">Loading...</span>
+                                            ) : (
+                                                <>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                    </svg>
+                                                    View Prescription
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
+                                    
                                     {/* Join meeting button - only active at appointment time */}
                                     {item.payment && !item.isCompleted && !item.cancelled && (
                                         <button 
@@ -699,6 +812,23 @@ const MyAppointments = () => {
                         </div>
                     ))}
                 </div>
+            )}
+            
+            {/* Prescription View Modal */}
+            {showPrescriptionView && prescription && selectedAppointment && (
+                <PrescriptionView 
+                    prescription={prescription}
+                    onClose={handleClosePrescriptionView}
+                    appointmentDetails={{
+                        userName: selectedAppointment.userData?.name || '',
+                        userEmail: selectedAppointment.userData?.email || '',
+                        docName: selectedAppointment.docData.name,
+                        docSpeciality: selectedAppointment.docData.speciality,
+                        date: selectedAppointment.slotDate,
+                        timeSlot: selectedAppointment.slotTime,
+                        appointmentType: selectedAppointment.appointmentType
+                    }}
+                />
             )}
         </div>
     )

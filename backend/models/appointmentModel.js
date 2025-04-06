@@ -25,7 +25,10 @@ const appointmentSchema = new mongoose.Schema({
     // Additional fields for better tracking
     meetingJoinedByDoctor: { type: Boolean, default: false },
     meetingJoinedByUser: { type: Boolean, default: false },
-    meetingNotes: { type: String, default: '' }
+    meetingNotes: { type: String, default: '' },
+    // Prescription related fields
+    hasPrescription: { type: Boolean, default: false },
+    prescriptionCreatedAt: { type: Date, default: null }
 })
 
 const appointmentModel = mongoose.models.appointment || mongoose.model("appointment", appointmentSchema)

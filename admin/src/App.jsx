@@ -17,6 +17,7 @@ import DoctorAppointments from './pages/Doctor/DoctorAppointments';
 import DoctorDashboard from './pages/Doctor/DoctorDashboard';
 import DoctorProfile from './pages/Doctor/DoctorProfile';
 import DoctorMeeting from './pages/Doctor/DoctorMeeting';
+import DoctorPrescriptions from './pages/Doctor/DoctorPrescriptions';
 
 const App = () => {
 
@@ -39,6 +40,11 @@ const App = () => {
           <Route path='/job-applications' element={<JobApplications />} />
           <Route path='/doctor-dashboard' element={<DoctorDashboard />} />
           <Route path='/doctor-appointments' element={<DoctorAppointments />} />
+          <Route path='/doctor-prescriptions' element={<DoctorPrescriptions />} />
+          <Route path='/doctor-prescriptions/list' element={<DoctorPrescriptions />} />
+          <Route path='/doctor-prescriptions/view/:prescriptionId' element={<DoctorPrescriptions />} />
+          <Route path='/doctor-prescriptions/edit/:prescriptionId' element={<DoctorPrescriptions />} />
+          <Route path='/doctor-prescriptions/create' element={<DoctorPrescriptions />} />
           <Route path='/doctor-profile' element={<DoctorProfile />} />
           <Route path='/doctor-meeting/:appointmentId' element={<DoctorMeeting />} />
         </Routes>
