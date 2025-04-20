@@ -5,7 +5,7 @@ import { assets } from '../../assets/assets'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import axios from 'axios'
-import { FaVideo, FaCheck, FaTimes } from 'react-icons/fa'
+import { FaVideo, FaCheck, FaTimes, FaFilePdf } from 'react-icons/fa'
 
 const DoctorAppointments = () => {
   const { dToken, appointments, getAppointments, cancelAppointment, completeAppointment, backendUrl } = useContext(DoctorContext)
@@ -13,6 +13,7 @@ const DoctorAppointments = () => {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('all') // 'all', 'upcoming', 'completed', 'cancelled'
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [justCompletedId, setJustCompletedId] = useState(null)
   
   useEffect(() => {
     if (dToken) {
@@ -301,10 +302,25 @@ const DoctorAppointments = () => {
     }
   }
   
+  // Handle navigating to create prescription for a completed appointment
+  const handleCreatePrescription = (appointmentId) => {
+    // Navigate to the prescription creation page
+    navigate('/doctor-prescriptions');
+    // The prescription page will show all completed appointments without prescriptions
+  }
+  
   // Handle appointment completion with confirmation
   const handleCompleteAppointment = (id) => {
     if (window.confirm('Mark this appointment as completed?')) {
       completeAppointment(id)
+      setJustCompletedId(id)
+      
+      // Show a confirmation dialog to create prescription
+      setTimeout(() => {
+        if (window.confirm('Appointment completed! Would you like to create a prescription for this patient?')) {
+          handleCreatePrescription(id)
+        }
+      }, 1000)
     }
   }
 
@@ -415,7 +431,16 @@ const DoctorAppointments = () => {
                 {item.cancelled ? (
                   <p className='text-red-500 text-sm font-medium'>Cancelled</p>
                 ) : item.isCompleted ? (
-                  <p className='text-green-500 text-sm font-medium'>Completed</p>
+                  <div className='flex items-center gap-2'>
+                    <span className='text-green-500 text-sm font-medium'>Completed</span>
+                    <button 
+                      onClick={() => handleCreatePrescription(item._id)}
+                      className="p-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+                      title="Create Prescription"
+                    >
+                      <FaFilePdf className="h-4 w-4" />
+                    </button>
+                  </div>
                 ) : (
                   <div className='flex gap-2'>
                     {/* Join meeting button - only active at appointment time */}
@@ -513,44 +538,55 @@ const DoctorAppointments = () => {
                 </div>
                 
                 {/* Action buttons */}
-                {item.cancelled ? (
-                  <p className='text-red-500 text-sm font-medium my-2'>Cancelled</p>
-                ) : item.isCompleted ? (
-                  <p className='text-green-500 text-sm font-medium my-2'>Completed</p>
-                ) : (
-                  <div className="flex gap-2 mt-4">
-                    {/* Join meeting button - only active at appointment time */}
-                    {item.payment && (
+                <div className="flex flex-col gap-2 mt-2">
+                  {item.cancelled ? (
+                    <p className='text-red-500 text-sm font-medium my-2'>Cancelled</p>
+                  ) : item.isCompleted ? (
+                    <div className='flex items-center gap-2 my-2'>
+                      <span className='text-green-500 text-sm font-medium'>Completed</span>
                       <button 
-                        key={`meeting-btn-${currentTime.getTime()}`}
-                        onClick={() => navigate(`/doctor-meeting/${item._id}`)}
-                        className={`flex items-center px-3 py-1.5 rounded-md text-sm transition-colors ${
-                          isAppointmentTimeNow(item.slotDate, item.slotTime)
-                            ? 'bg-green-600 text-white hover:bg-green-700'
-                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                        }`}
-                        disabled={!isAppointmentTimeNow(item.slotDate, item.slotTime)}
+                        onClick={() => handleCreatePrescription(item._id)}
+                        className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors flex items-center gap-1 text-sm"
+                        title="Create Prescription"
                       >
-                        <FaVideo className="h-4 w-4 mr-1" />
-                        {isAppointmentTimeNow(item.slotDate, item.slotTime) ? 'Join' : 'Join'}
+                        <FaFilePdf className="h-4 w-4" /> Create Prescription
                       </button>
-                    )}
-                    <button 
-                      onClick={() => handleCompleteAppointment(item._id)}
-                      className="flex items-center px-3 py-1.5 bg-green-100 text-green-700 rounded-md text-sm hover:bg-green-200 transition-colors"
-                    >
-                      <FaCheck className="h-4 w-4 mr-1" />
-                      Complete
-                    </button>
-                    <button 
-                      onClick={() => handleCancelAppointment(item._id)}
-                      className="flex items-center px-3 py-1.5 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors"
-                    >
-                      <FaTimes className="h-4 w-4 mr-1" />
-                      Cancel
-                    </button>
-                  </div>
-                )}
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 mt-4">
+                      {/* Join meeting button - only active at appointment time */}
+                      {item.payment && (
+                        <button 
+                          key={`meeting-btn-${currentTime.getTime()}`}
+                          onClick={() => navigate(`/doctor-meeting/${item._id}`)}
+                          className={`flex items-center px-3 py-1.5 rounded-md text-sm transition-colors ${
+                            isAppointmentTimeNow(item.slotDate, item.slotTime)
+                              ? 'bg-green-600 text-white hover:bg-green-700'
+                              : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                          }`}
+                          disabled={!isAppointmentTimeNow(item.slotDate, item.slotTime)}
+                        >
+                          <FaVideo className="h-4 w-4 mr-1" />
+                          {isAppointmentTimeNow(item.slotDate, item.slotTime) ? 'Join' : 'Join'}
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => handleCompleteAppointment(item._id)}
+                        className="flex items-center px-3 py-1.5 bg-green-100 text-green-700 rounded-md text-sm hover:bg-green-200 transition-colors"
+                      >
+                        <FaCheck className="h-4 w-4 mr-1" />
+                        Complete
+                      </button>
+                      <button 
+                        onClick={() => handleCancelAppointment(item._id)}
+                        className="flex items-center px-3 py-1.5 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors"
+                      >
+                        <FaTimes className="h-4 w-4 mr-1" />
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))

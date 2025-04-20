@@ -12,6 +12,8 @@ import AddDoctor from './pages/Admin/AddDoctor';
 import DoctorsList from './pages/Admin/DoctorsList';
 import JobManagement from './pages/Admin/JobManagement';
 import JobApplications from './pages/Admin/JobApplications';
+import AddJob from './pages/Admin/AddJob';
+import ViewApplication from './pages/Admin/ViewApplication';
 import Login from './pages/Login';
 import DoctorAppointments from './pages/Doctor/DoctorAppointments';
 import DoctorDashboard from './pages/Doctor/DoctorDashboard';
@@ -37,7 +39,10 @@ const App = () => {
           <Route path='/add-doctor' element={<AddDoctor />} />
           <Route path='/doctor-list' element={<DoctorsList />} />
           <Route path='/job-management' element={<JobManagement />} />
+          <Route path='/job-management/add' element={<AddJob />} />
+          <Route path='/job-management/edit/:jobId' element={<AddJob />} />
           <Route path='/job-applications' element={<JobApplications />} />
+          <Route path='/job-applications/view/:applicationId' element={<ViewApplication />} />
           <Route path='/doctor-dashboard' element={<DoctorDashboard />} />
           <Route path='/doctor-appointments' element={<DoctorAppointments />} />
           <Route path='/doctor-prescriptions' element={<DoctorPrescriptions />} />

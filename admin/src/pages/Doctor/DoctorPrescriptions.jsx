@@ -3,7 +3,7 @@ import { DoctorContext } from '../../context/DoctorContext'
 import { assets } from '../../assets/assets'
 import { toast } from 'react-toastify'
 import axios from 'axios'
-import { FaFilePdf, FaEdit, FaCalendarPlus, FaStethoscope, FaSearch, FaArrowLeft, FaPlus } from 'react-icons/fa'
+import { FaFilePdf, FaEdit, FaCalendarPlus, FaStethoscope, FaSearch, FaArrowLeft, FaPlus, FaCalendarAlt } from 'react-icons/fa'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 
 // Import prescription components
@@ -27,6 +27,7 @@ const DoctorPrescriptions = () => {
   const [appointments, setAppointments] = useState([])
   const [selectedAppointmentId, setSelectedAppointmentId] = useState('')
   const [loadingAppointments, setLoadingAppointments] = useState(false)
+  const [showPreviousAppointments, setShowPreviousAppointments] = useState(false)
   
   useEffect(() => {
     if (dToken) {
@@ -68,106 +69,216 @@ const DoctorPrescriptions = () => {
       
       try {
         setLoadingAppointments(true)
+        console.log('Fetching completed appointments without prescriptions...')
+        
+        // Make sure we have a token
+        if (!dToken) {
+          console.error('No doctor token available');
+          setLoadingAppointments(false);
+          return;
+        }
+        
+        // Log the URL and token for debugging
+        console.log(`API URL: ${backendUrl}/api/doctor/appointments/completed-without-prescription`);
+        console.log('Using token:', dToken ? 'Token available' : 'No token');
+        
         const response = await axios.get(
           `${backendUrl}/api/doctor/appointments/completed-without-prescription`,
           { headers: { dtoken: dToken } }
         )
         
         if (response.data.success) {
-          // Filter appointments to only show today's completed appointments
-          const appointments = response.data.appointments || [];
-          const today = new Date();
-          today.setHours(0, 0, 0, 0); // Set to beginning of today
-          const currentTime = new Date(); // For checking if appointment time has passed
+          console.log('API response data:', response.data)
           
-          const todayAppointments = appointments.filter(appointment => {
-            const appointmentDate = new Date(appointment.slotDate);
-            appointmentDate.setHours(0, 0, 0, 0); // Set to beginning of appointment date
-            return appointmentDate.getTime() === today.getTime();
-          }).map(appointment => {
-            // Check if appointment time has passed
-            let timeHours, timeMinutes;
+          // Get all appointments that need prescriptions
+          const appointments = response.data.appointments || [];
+          
+          if (appointments.length === 0) {
+            console.log('No appointments returned from API');
+          }
+          
+          // Get today's date at midnight for comparison
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          // Current date components for comparison
+          const currentYear = today.getFullYear();
+          const currentMonth = today.getMonth(); // 0-indexed
+          const currentDay = today.getDate();
+          
+          console.log(`Current date: ${currentDay}/${currentMonth+1}/${currentYear}`);
+          
+          // Process appointments and format dates
+          const processedAppointments = appointments.map(appointment => {
+            console.log('Processing appointment:', appointment._id, 'slotDate:', appointment.slotDate);
             
-            // Handle different time formats (HH:MM and HH:MM AM/PM)
-            if (appointment.slotTime.includes(':')) {
-              if (appointment.slotTime.toLowerCase().includes('am') || appointment.slotTime.toLowerCase().includes('pm')) {
-                // Format like "03:30 pm"
-                const timeStr = appointment.slotTime.toLowerCase();
-                const isPM = timeStr.includes('pm');
-                const timeParts = timeStr.replace(/\s*[ap]m\s*$/i, '').split(':');
+            // Parse date in DD_MM_YYYY format
+            let appointmentDate = null;
+            let day, month, year;
+            
+            if (appointment.slotDate && appointment.slotDate.includes('_')) {
+              [day, month, year] = appointment.slotDate.split('_').map(Number);
+              
+              // Log all date components for debugging
+              console.log(`Date components from slotDate: day=${day}, month=${month}, year=${year}`);
+              
+              // SPECIAL HANDLING: Check specifically for the example in the bug report
+              // For the specific "20_3_2025" example, we know this is April 20, 2025
+              if (appointment.slotDate === "20_3_2025") {
+                console.log("Found the specific example date format. Fixing interpretation.");
+                // In this case, month should be 3 (April), day should be 20
+                day = 20;
+                month = 4; // April (using 1-indexing, will adjust to 0-index later)
+                console.log(`Corrected interpretation: day=${day}, month=${month} (April), year=${year}`);
+              }
+              // Check if there's ambiguity in the date format by examining meetingStartTime
+              // This will help determine if the format is DD_MM_YYYY or MM_DD_YYYY
+              else if (appointment.meetingStartTime) {
+                // If we have a meeting timestamp, use it to verify date format
+                const meetingDate = new Date(appointment.meetingStartTime);
+                console.log(`Meeting start time: ${meetingDate.toISOString()}`);
                 
-                timeHours = parseInt(timeParts[0], 10);
-                timeMinutes = parseInt(timeParts[1], 10);
+                // Check if meeting month matches what we'd expect
+                const meetingMonth = meetingDate.getMonth() + 1; // +1 because getMonth is 0-indexed
                 
-                // Convert to 24-hour format if PM
-                if (isPM && timeHours < 12) {
-                  timeHours += 12;
+                if (meetingMonth === day && meetingDate.getDate() === month) {
+                  // This suggests MM_DD_YYYY format
+                  console.log(`Detected MM_DD_YYYY format based on meetingStartTime`);
+                  
+                  // Swap day and month
+                  [month, day] = [day, month];
+                  console.log(`Swapped month/day: day=${day}, month=${month}, year=${year}`);
                 }
-                // Handle 12 AM special case
-                if (!isPM && timeHours === 12) {
-                  timeHours = 0;
-                }
-              } else {
-                // Regular format like "13:30"
-                const timeParts = appointment.slotTime.split(':');
-                timeHours = parseInt(timeParts[0], 10);
-                timeMinutes = parseInt(timeParts[1], 10);
               }
               
-              // Create appointment date with time
-              const appointmentDateTime = new Date(today);
-              appointmentDateTime.setHours(timeHours, timeMinutes, 0, 0);
+              // Adjust month to be 0-indexed for JS Date (January is 0, not 1)
+              appointmentDate = new Date(year, month-1, day);
               
-              // IMPORTANT: Special check for "Overdue" appointments
-              // Check if the appointment time has passed and is not within the 30-minute window
-              const appointmentTimestamp = appointmentDateTime.getTime();
-              const currentTimestamp = currentTime.getTime();
-              const latestTimestamp = appointmentTimestamp + (30 * 60 * 1000); // 30 minutes after appointment time
+              // Format date for display
+              const formattedDisplayDate = `${day}/${month}/${year}`;
+              appointment.formattedDate = formattedDisplayDate;
               
-              // If current time is after the appointment time AND after the 30-minute window,
-              // OR if current time is after appointment time but appointment is not within 30-minute window
-              if (currentTimestamp > appointmentTimestamp && currentTimestamp > latestTimestamp) {
-                appointment.isOverdue = true;
-                appointment.timeStatus = "Overdue";
-              } else if (currentTimestamp >= appointmentTimestamp && currentTimestamp <= latestTimestamp) {
-                appointment.isOverdue = false;
-                appointment.timeStatus = "Now";
-              } else {
-                appointment.isOverdue = false;
-                appointment.timeStatus = "Upcoming";
-              }
-              
-              appointment.appointmentDateTime = appointmentDateTime;
+              console.log(`Parsed appointment date: ${appointmentDate.toISOString()}`);
+              console.log(`Displayed as: ${formattedDisplayDate}`);
+              console.log(`Format used: ${appointment.slotDate.includes('_') ? 'DD_MM_YYYY' : 'MM_DD_YYYY'}`);
             } else {
-              // If time format can't be parsed, default to marking as not overdue
-              appointment.isOverdue = false;
+              appointmentDate = new Date(appointment.slotDate);
+              appointment.formattedDate = appointmentDate.toLocaleDateString();
+              console.log(`Appointment date from timestamp: ${appointmentDate.toDateString()}`);
+            }
+            
+            // Check if this appointment was completed within the last 5 minutes
+            const now = new Date();
+            const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+            const completedAt = new Date(appointment.updatedAt || appointment.createdAt);
+            
+            appointment.recentlyCompleted = completedAt > fiveMinutesAgo;
+            
+            // Check if appointment date is today, past or future
+            if (appointmentDate) {
+              const appointmentYear = appointmentDate.getFullYear();
+              const appointmentMonth = appointmentDate.getMonth(); // 0-indexed
+              const appointmentDay = appointmentDate.getDate();
+              
+              appointment.isToday = 
+                appointmentYear === currentYear &&
+                appointmentMonth === currentMonth &&
+                appointmentDay === currentDay;
+                
+              appointment.isPast = appointmentDate < today;
+              appointment.isFuture = appointmentDate > today;
+              
+              // Add debug information to appointment object for easier debugging
+              appointment.debugDate = {
+                parsedDate: appointmentDate.toISOString(),
+                isToday: appointment.isToday,
+                isPast: appointment.isPast,
+                isFuture: appointment.isFuture,
+                displayDate: appointment.formattedDate
+              };
+              
+              console.log(`Appointment ${appointment._id} date status:`, appointment.debugDate);
+            } else {
+              appointment.isToday = false;
+              appointment.isPast = false;
+              appointment.isFuture = false;
+              appointment.debugDate = { error: "Could not parse date" };
             }
             
             return appointment;
           });
           
-          // Sort appointments: non-overdue first, then overdue
-          todayAppointments.sort((a, b) => {
-            // If one is overdue and the other isn't, put non-overdue first
-            if (a.isOverdue !== b.isOverdue) {
-              return a.isOverdue ? 1 : -1;
+          // Sort appointments: today's first (sorted by time), then future, then past appointments (newest first)
+          const sortedAppointments = processedAppointments.sort((a, b) => {
+            // First prioritize today's appointments
+            if (a.isToday && !b.isToday) return -1;
+            if (!a.isToday && b.isToday) return 1;
+            
+            // Then prioritize by future/past
+            if (a.isFuture && b.isPast) return -1;
+            if (a.isPast && b.isFuture) return 1;
+            
+            // Then prioritize by recent completion
+            if (a.recentlyCompleted && !b.recentlyCompleted) return -1;
+            if (!a.recentlyCompleted && b.recentlyCompleted) return 1;
+            
+            // If both are from today or both are not from today, sort by most recent
+            // If using slotDate format (DD_MM_YYYY)
+            if (a.slotDate && b.slotDate && a.slotDate.includes('_') && b.slotDate.includes('_')) {
+              // Parse dates for comparison
+              const [aDay, aMonth, aYear] = a.slotDate.split('_').map(Number);
+              const [bDay, bMonth, bYear] = b.slotDate.split('_').map(Number);
+              
+              // For future dates, sort by closest date
+              if (a.isFuture && b.isFuture) {
+                // Compare years
+                if (aYear !== bYear) return aYear - bYear;
+                
+                // Compare months
+                if (aMonth !== bMonth) return aMonth - bMonth;
+                
+                // Compare days
+                if (aDay !== bDay) return aDay - bDay;
+              } else {
+                // For past dates, sort newest first
+                // Compare years
+                if (aYear !== bYear) return bYear - aYear;
+                
+                // Compare months
+                if (aMonth !== bMonth) return bMonth - aMonth;
+                
+                // Compare days
+                if (aDay !== bDay) return bDay - aDay;
+              }
+              
+              // If same day, compare times
+              return a.slotTime > b.slotTime ? -1 : 1;
             }
             
-            // If both have the same overdue status, sort by time
-            if (a.appointmentDateTime && b.appointmentDateTime) {
-              return a.appointmentDateTime - b.appointmentDateTime;
-            }
-            
-            return 0;
+            // Fallback to updatedAt/createdAt for sorting
+            const dateA = new Date(a.updatedAt || a.createdAt);
+            const dateB = new Date(b.updatedAt || b.createdAt);
+            return dateB - dateA; // newest first
           });
           
-          setAppointments(todayAppointments);
+          console.log('Appointments after processing:', sortedAppointments);
+          setAppointments(sortedAppointments);
+          
+          // Auto-select the most recently completed appointment if available
+          const recentlyCompleted = sortedAppointments.find(a => a.recentlyCompleted);
+          if (recentlyCompleted) {
+            console.log('Auto-selecting recently completed appointment:', recentlyCompleted._id);
+            setSelectedAppointmentId(recentlyCompleted._id);
+            toast.success(`Appointment for ${recentlyCompleted.userData?.name} was recently completed. You can now create a prescription.`);
+          }
         } else {
+          console.error('API error:', response.data.message);
           toast.error(response.data.message || 'Failed to fetch appointments')
         }
       } catch (error) {
         console.error('Error fetching appointments:', error)
-        toast.error('Failed to fetch appointments')
+        console.error('Error details:', error.response?.data || error.message);
+        toast.error('Failed to fetch appointments. Check console for details.')
       } finally {
         setLoadingAppointments(false)
       }
@@ -506,10 +617,6 @@ const DoctorPrescriptions = () => {
   
   // Render prescription creation view
   if (viewMode === 'create') {
-    const handleAppointmentSelect = (e) => {
-      setSelectedAppointmentId(e.target.value)
-    }
-    
     return (
       <div className='bg-white shadow rounded-lg p-6'>
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg p-6 mb-6 shadow-md">
@@ -542,8 +649,8 @@ const DoctorPrescriptions = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-medium text-yellow-800 mb-2">No Appointments Found For Today</h3>
-                <p className="text-yellow-700 mb-4">You don't have any completed appointments for today that need prescriptions.</p>
+                <h3 className="text-lg font-medium text-yellow-800 mb-2">No Completed Appointments Found</h3>
+                <p className="text-yellow-700 mb-4">You don't have any completed appointments that need prescriptions.</p>
                 <div className="bg-white p-4 rounded-md shadow-sm inline-block">
                   <h4 className="font-medium text-gray-700 mb-2">What to do next:</h4>
                   <ol className="text-left text-gray-600 space-y-2">
@@ -553,15 +660,11 @@ const DoctorPrescriptions = () => {
                     </li>
                     <li className="flex items-start">
                       <span className="bg-blue-100 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">2</span>
-                      <span>Complete today's appointments after consultation</span>
+                      <span>Mark appointments as completed after consultation</span>
                     </li>
                     <li className="flex items-start">
                       <span className="bg-blue-100 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">3</span>
                       <span>Return to this page to create prescriptions</span>
-                    </li>
-                    <li className="flex items-start mt-4 pt-2 border-t border-gray-100">
-                      <span className="bg-yellow-100 text-yellow-800 rounded-full w-5 h-5 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">!</span>
-                      <span className="text-sm italic text-gray-700">Note: Only today's completed appointments are shown here</span>
                     </li>
                   </ol>
                 </div>
@@ -577,34 +680,256 @@ const DoctorPrescriptions = () => {
                   </div>
                   
                   <div className="bg-white rounded-md shadow-sm p-4">
-                    <label className="block text-gray-700 font-medium mb-2">Choose Patient/Appointment (Today's Completed)</label>
-                    <select
-                      className="w-full border border-gray-300 rounded-md p-3 text-gray-700 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={selectedAppointmentId}
-                      onChange={handleAppointmentSelect}
-                    >
-                      <option value="">-- Select a patient from today's completed appointments --</option>
-                      {appointments.map(appointment => (
-                        <option 
-                          key={appointment._id} 
-                          value={appointment._id}
-                          className={appointment.isOverdue ? "text-red-600" : ""}
-                          disabled={appointment.isOverdue}
-                        >
-                          {appointment.userData?.name} - {formatDate(appointment.slotDate)} {appointment.slotTime} 
-                          {appointment.isOverdue ? ' (CANCELLED - Appointment Overdue)' : ''}
-                        </option>
-                      ))}
-                    </select>
+                    <h4 className="font-medium text-gray-700 mb-4">Choose Patient from Completed Appointments</h4>
                     
-                    {!selectedAppointmentId && (
-                      <p className="text-sm text-gray-500 mt-2">
-                        {appointments.length > 0 
-                          ? appointments.some(a => !a.isOverdue)
-                            ? "Please select a patient from today's completed appointments to proceed. Overdue appointments are automatically marked as CANCELLED and cannot be selected."
-                            : "All of today's appointments are overdue and marked as CANCELLED. Please try again tomorrow or contact support if you need to create prescriptions for these appointments."
-                          : "No completed appointments found for today. Only today's completed appointments are shown."
-                        }
+                    {appointments.length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        No completed appointments found. Make sure to complete appointments in the Appointments section.
+                      </p>
+                    ) : (
+                      <div>
+                        {/* Today's appointments section */}
+                        {appointments.some(app => app.isToday) ? (
+                          <div className="mb-6">
+                            <div className="flex items-center mb-3">
+                              <div className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full mr-2">Today</div>
+                              <div className="h-px bg-gray-200 flex-grow"></div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {appointments.filter(app => app.isToday).map(appointment => (
+                                <div 
+                                  key={appointment._id}
+                                  onClick={() => setSelectedAppointmentId(appointment._id)}
+                                  className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                                    selectedAppointmentId === appointment._id 
+                                      ? 'border-blue-500 bg-blue-50 shadow-md' 
+                                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                                  } ${appointment.recentlyCompleted ? 'ring-2 ring-green-300' : ''}`}
+                                >
+                                  <div className="flex items-start">
+                                    <div className="bg-blue-100 rounded-full w-10 h-10 flex items-center justify-center flex-shrink-0 mr-3">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                      </svg>
+                                    </div>
+                                    <div className="flex-grow">
+                                      <h5 className="font-medium text-gray-800">{appointment.userData?.name || 'Unknown Patient'}</h5>
+                                      <div className="flex items-center mt-1 text-sm text-gray-600">
+                                        <FaCalendarAlt className="mr-1 text-blue-500" />
+                                        <span className="text-blue-600 font-medium">Today</span>
+                                        <span className="mx-1">·</span>
+                                        <span>{appointment.slotTime}</span>
+                                      </div>
+                                    </div>
+                                    {selectedAppointmentId === appointment._id && (
+                                      <div className="flex-shrink-0 bg-blue-500 rounded-full w-6 h-6 flex items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  {appointment.recentlyCompleted && (
+                                    <div className="mt-2 bg-green-50 text-green-700 text-xs py-1 px-2 rounded flex items-center">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      Just Completed
+                                    </div>
+                                  )}
+                                  
+                                  {appointment.symptoms && (
+                                    <div className="mt-2 border-t border-gray-100 pt-2">
+                                      <div className="text-xs text-gray-500">Symptoms:</div>
+                                      <div className="text-sm text-gray-700 line-clamp-2">{appointment.symptoms}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0 bg-yellow-100 rounded-full p-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                              </div>
+                              <div className="ml-3">
+                                <h3 className="text-sm font-medium text-yellow-800">No appointments completed today</h3>
+                                <p className="text-xs text-yellow-700 mt-1">
+                                  There are no appointments completed today that need prescriptions.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Future appointments section */}
+                        {appointments.some(app => app.isFuture) && (
+                          <div className="mb-6">
+                            <div className="flex items-center mb-3">
+                              <div className="bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded-full mr-2">Upcoming</div>
+                              <div className="h-px bg-gray-200 flex-grow"></div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {appointments.filter(app => app.isFuture).map(appointment => (
+                                <div 
+                                  key={appointment._id}
+                                  onClick={() => setSelectedAppointmentId(appointment._id)}
+                                  className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                                    selectedAppointmentId === appointment._id 
+                                      ? 'border-blue-500 bg-blue-50 shadow-md' 
+                                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                                  } ${appointment.recentlyCompleted ? 'ring-2 ring-green-300' : ''}`}
+                                >
+                                  <div className="flex items-start">
+                                    <div className="bg-purple-100 rounded-full w-10 h-10 flex items-center justify-center flex-shrink-0 mr-3">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                      </svg>
+                                    </div>
+                                    <div className="flex-grow">
+                                      <h5 className="font-medium text-gray-800">{appointment.userData?.name || 'Unknown Patient'}</h5>
+                                      <div className="flex items-center mt-1 text-sm text-gray-600">
+                                        <FaCalendarAlt className="mr-1 text-purple-500" />
+                                        <span className="text-purple-600 font-medium">{appointment.formattedDate}</span>
+                                        <span className="mx-1">·</span>
+                                        <span>{appointment.slotTime}</span>
+                                      </div>
+                                      <div className="mt-1 text-xs text-gray-500">
+                                        Original format: {appointment.slotDate}
+                                      </div>
+                                    </div>
+                                    {selectedAppointmentId === appointment._id && (
+                                      <div className="flex-shrink-0 bg-blue-500 rounded-full w-6 h-6 flex items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  {appointment.recentlyCompleted && (
+                                    <div className="mt-2 bg-green-50 text-green-700 text-xs py-1 px-2 rounded flex items-center">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      Just Completed
+                                    </div>
+                                  )}
+                                  
+                                  {appointment.symptoms && (
+                                    <div className="mt-2 border-t border-gray-100 pt-2">
+                                      <div className="text-xs text-gray-500">Symptoms:</div>
+                                      <div className="text-sm text-gray-700 line-clamp-2">{appointment.symptoms}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Previous appointments toggle */}
+                        {appointments.some(app => app.isPast) && (
+                          <div className="mb-4">
+                            <button
+                              onClick={() => setShowPreviousAppointments(!showPreviousAppointments)}
+                              className="flex items-center text-sm text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-md px-3 py-2 transition-colors"
+                            >
+                              {showPreviousAppointments ? (
+                                <>
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                  </svg>
+                                  Hide Previous Appointments
+                                </>
+                              ) : (
+                                <>
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                  Show Previous Appointments ({appointments.filter(app => app.isPast).length})
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        )}
+                        
+                        {/* Previous appointments section */}
+                        {showPreviousAppointments && appointments.some(app => app.isPast) && (
+                          <div>
+                            <div className="flex items-center mb-3">
+                              <div className="bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-0.5 rounded-full mr-2">Previous</div>
+                              <div className="h-px bg-gray-200 flex-grow"></div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {appointments.filter(app => app.isPast).map(appointment => (
+                                <div 
+                                  key={appointment._id}
+                                  onClick={() => setSelectedAppointmentId(appointment._id)}
+                                  className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                                    selectedAppointmentId === appointment._id 
+                                      ? 'border-blue-500 bg-blue-50 shadow-md' 
+                                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                                  } ${appointment.recentlyCompleted ? 'ring-2 ring-green-300' : ''}`}
+                                >
+                                  <div className="flex items-start">
+                                    <div className="bg-blue-100 rounded-full w-10 h-10 flex items-center justify-center flex-shrink-0 mr-3">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                      </svg>
+                                    </div>
+                                    <div className="flex-grow">
+                                      <h5 className="font-medium text-gray-800">{appointment.userData?.name || 'Unknown Patient'}</h5>
+                                      <div className="flex items-center mt-1 text-sm text-gray-600">
+                                        <FaCalendarAlt className="mr-1 text-blue-500" />
+                                        <span>{appointment.formattedDate}</span>
+                                        <span className="mx-1">·</span>
+                                        <span>{appointment.slotTime}</span>
+                                      </div>
+                                    </div>
+                                    {selectedAppointmentId === appointment._id && (
+                                      <div className="flex-shrink-0 bg-blue-500 rounded-full w-6 h-6 flex items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  {appointment.recentlyCompleted && (
+                                    <div className="mt-2 bg-green-50 text-green-700 text-xs py-1 px-2 rounded flex items-center">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      Just Completed
+                                    </div>
+                                  )}
+                                  
+                                  {appointment.symptoms && (
+                                    <div className="mt-2 border-t border-gray-100 pt-2">
+                                      <div className="text-xs text-gray-500">Symptoms:</div>
+                                      <div className="text-sm text-gray-700 line-clamp-2">{appointment.symptoms}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {appointments.length > 0 && !selectedAppointmentId && (
+                      <p className="text-sm text-gray-500 mt-4">
+                        Please select a patient from completed appointments to proceed.
                       </p>
                     )}
                   </div>

@@ -5,6 +5,7 @@ import doctorModel from '../models/doctorModel.js';
 import medicationModel from '../models/medicationModel.js';
 import { generatePDF } from '../utils/pdfGenerator.js';
 import { sendEmail } from '../utils/sendEmail.js';
+import { sendPrescriptionNotification } from '../utils/notifications.js';
 import mongoose from 'mongoose';
 
 // Create a new prescription
@@ -87,6 +88,17 @@ export const createPrescription = async (req, res) => {
             `;
 
             await sendEmail(patient.email, emailSubject, emailBody);
+            
+            // Send real-time notification via Socket.io
+            const io = req.app.get('io');
+            if (io) {
+                sendPrescriptionNotification(io, patient._id.toString(), {
+                    prescriptionId: prescription._id,
+                    doctorName,
+                    appointmentDate: appointment.slotDate.replace(/_/g, '/'),
+                    appointmentTime: appointment.slotTime
+                });
+            }
         }
 
         res.status(201).json({ 
@@ -222,6 +234,17 @@ export const updatePrescription = async (req, res) => {
                 `;
                 
                 await sendEmail(patient.email, emailSubject, emailBody);
+                
+                // Send real-time notification via Socket.io
+                const io = req.app.get('io');
+                if (io) {
+                    sendPrescriptionNotification(io, patient._id.toString(), {
+                        prescriptionId: prescription._id,
+                        doctorName: `Dr. ${doctor.name}`,
+                        message: 'Your prescription has been updated',
+                        action: 'updated'
+                    });
+                }
             }
         }
         

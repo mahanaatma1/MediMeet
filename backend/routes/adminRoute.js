@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginAdmin, appointmentsAdmin, appointmentCancel, addDoctor, allDoctors, adminDashboard, addJob, getAllJobs, getJobById, updateJob, deleteJob, changeAvailability, getAllJobApplications, updateApplicationStatus, getApplicationStats } from '../controllers/adminController.js';
+import { loginAdmin, appointmentsAdmin, appointmentCancel, addDoctor, allDoctors, adminDashboard, addJob, getAllJobs, getJobById, updateJob, deleteJob, changeAvailability, getAllJobApplications, getApplicationById, updateApplicationStatus, getApplicationStats } from '../controllers/adminController.js';
 import authAdmin from '../middleware/authAdmin.js';
 import upload from '../middleware/multer.js';
 import jobApplicationModel from '../models/jobApplicationModel.js';
@@ -23,11 +23,13 @@ adminRouter.put("/jobs/:id", authAdmin, updateJob)
 adminRouter.delete("/jobs/:id", authAdmin, deleteJob)
 
 // Job application management routes
-adminRouter.get("/applications", authAdmin, getAllJobApplications)
-adminRouter.put("/applications/:applicationId/status", authAdmin, updateApplicationStatus)
 adminRouter.get("/applications/stats", authAdmin, getApplicationStats)
+adminRouter.get("/applications", authAdmin, getAllJobApplications)
+adminRouter.get("/applications/:applicationId", authAdmin, getApplicationById)
+adminRouter.put("/applications/:applicationId/status", authAdmin, updateApplicationStatus)
 
 adminRouter.get("/job-applications", authAdmin, getAllJobApplications)
+adminRouter.get("/job-applications/:applicationId", authAdmin, getApplicationById)
 adminRouter.put("/job-applications/:applicationId/status", authAdmin, updateApplicationStatus)
 
 // Add endpoint for admins to access resumes

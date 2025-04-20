@@ -421,6 +421,29 @@ const getAllJobApplications = async (req, res) => {
   }
 };
 
+// Get application by ID
+const getApplicationById = async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    
+    // Find the application and populate job information
+    const application = await jobApplicationModel
+      .findById(applicationId)
+      .populate('jobId');
+    
+    if (!application) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Application not found" 
+      });
+    }
+    
+    res.json({ success: true, application });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // Update application status
 const updateApplicationStatus = async (req, res) => {
   try {
@@ -494,6 +517,7 @@ export {
     deleteJob,
     changeAvailability,
     getAllJobApplications,
+    getApplicationById,
     updateApplicationStatus,
     getApplicationStats
 }

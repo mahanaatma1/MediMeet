@@ -66,13 +66,19 @@ const PrescriptionDetails = () => {
               
               // Get appointment data if missing
               if (prescriptionData.appointmentId && (!prescriptionData.appointmentData || !prescriptionData.appointmentData.slotTime)) {
-                const appointmentResponse = await axios.get(
-                  `${backendUrl}/api/meeting/appointment/${prescriptionData.appointmentId}`,
-                  { headers: { token } }
-                );
-                
-                if (appointmentResponse.data.success) {
-                  prescriptionData.appointmentData = appointmentResponse.data.appointment;
+                try {
+                  // Using prescription by appointment endpoint since direct appointment endpoint isn't available
+                  const appointmentResponse = await axios.get(
+                    `${backendUrl}/api/prescription/appointment/${prescriptionData.appointmentId}`,
+                    { headers: { token } }
+                  );
+                  
+                  if (appointmentResponse.data.success) {
+                    prescriptionData.appointmentData = appointmentResponse.data.data.appointmentData;
+                  }
+                } catch (appointmentError) {
+                  console.error('Error fetching appointment data:', appointmentError);
+                  // Don't show error toast for this specific error to avoid confusing the user
                 }
               }
             } catch (additionalDataError) {
