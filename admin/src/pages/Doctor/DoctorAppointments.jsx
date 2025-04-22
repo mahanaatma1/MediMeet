@@ -91,9 +91,9 @@ const DoctorAppointments = () => {
         return new Date(); // Return current date as fallback
       }
       
-      // IMPORTANT: In our system, the month is already 0-indexed in the database
-      // so we don't need to subtract 1 from the month value
-      const appointmentDate = new Date(year, month, day, timeHours, timeMinutes);
+      // IMPORTANT: In our system, the month is now 1-indexed in the database (after our fix)
+      // so we need to subtract 1 from the month value for JavaScript's Date object
+      const appointmentDate = new Date(year, month - 1, day, timeHours, timeMinutes);
       
       // Check if date is valid
       if (isNaN(appointmentDate.getTime())) {
@@ -108,7 +108,7 @@ const DoctorAppointments = () => {
     }
   }
 
-  // Function to check if appointment time is now (only from exact time to 30 minutes after)
+  // Function to check if appointment time is now (only from exact time to 45 minutes after)
   const isAppointmentTimeNow = (slotDate, slotTime) => {
     try {
       // Validate inputs
@@ -151,9 +151,9 @@ const DoctorAppointments = () => {
       }
       
       // Create appointment date object
-      // IMPORTANT: In our system, the month is already 0-indexed in the database
-      // so we don't need to subtract 1 from the month value
-      const appointmentTime = new Date(year, month, day, timeHours, timeMinutes, 0, 0);
+      // IMPORTANT: In our system, the month is now 1-indexed in the database (after our fix)
+      // so we need to subtract 1 from the month value for JavaScript's Date object
+      const appointmentTime = new Date(year, month - 1, day, timeHours, timeMinutes, 0, 0);
       
       // Validate the appointment time to ensure it's a valid date
       if (isNaN(appointmentTime.getTime())) {
@@ -164,9 +164,9 @@ const DoctorAppointments = () => {
       // Use currentTime state variable for more reactive updates
       const now = currentTime;
       
-      // Create the latest join time (appointment time + 30 minutes)
+      // Create the latest join time (appointment time + 45 minutes)
       const latestJoinTime = new Date(appointmentTime);
-      latestJoinTime.setMinutes(latestJoinTime.getMinutes() + 30);
+      latestJoinTime.setMinutes(latestJoinTime.getMinutes() + 45);
       
       // Compare timestamps for precise comparison
       const appointmentTimestamp = appointmentTime.getTime();
@@ -237,9 +237,9 @@ const DoctorAppointments = () => {
       }
       
       // Create appointment date object
-      // IMPORTANT: In our system, the month is already 0-indexed in the database
-      // so we don't need to subtract 1 from the month value
-      const appointmentTime = new Date(year, month, day, timeHours, timeMinutes, 0, 0);
+      // IMPORTANT: In our system, the month is now 1-indexed in the database (after our fix)
+      // so we need to subtract 1 from the month value for JavaScript's Date object
+      const appointmentTime = new Date(year, month - 1, day, timeHours, timeMinutes, 0, 0);
       
       // Validate appointment time 
       if (isNaN(appointmentTime.getTime())) {
@@ -253,7 +253,7 @@ const DoctorAppointments = () => {
       // Check if appointment time has passed
       if (appointmentTime.getTime() < now.getTime()) {
         if (isAppointmentTimeNow(slotDate, slotTime)) {
-          return "Now"; // Appointment is happening now (within the 30-minute window)
+          return "Now"; // Appointment is happening now (within the 45-minute window)
         }
         return "Overdue"; // Appointment time has passed
       }

@@ -8,14 +8,15 @@ import reviewModel from "../models/reviewModel.js";
 import { v2 as cloudinary } from 'cloudinary'
 import stripe from "stripe";
 import razorpay from 'razorpay';
-import Job from '../models/jobModel.js';
+import jobModel from '../models/jobModel.js';
 import jobApplicationModel from '../models/jobApplicationModel.js';
 import { sendEmail, sendVerificationEmail } from '../utils/sendEmail.js';
 import { 
     getPasswordResetTemplate, 
     getVerificationEmailTemplate, 
     getAppointmentBookingTemplate, 
-    getPaymentConfirmationTemplate 
+    getPaymentConfirmationTemplate,
+    getJobApplicationTemplate
 } from '../utils/emailTemplates.js';
 import mongoose from 'mongoose';
 import fs from 'fs';
@@ -556,7 +557,7 @@ const verifyStripe = async (req, res) => {
 // Get active jobs for users
 const getActiveJobs = async (req, res) => {
     try {
-        const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
+        const jobs = await jobModel.find({ isActive: true }).sort({ createdAt: -1 });
         res.status(200).json({ success: true, jobs });
     } catch (error) {
         console.error("Error getting active jobs:", error);
@@ -569,7 +570,7 @@ const getJobById = async (req, res) => {
     try {
         const { jobId } = req.params;
         
-        const job = await Job.findById(jobId);
+        const job = await jobModel.findById(jobId);
         
         if (!job) {
             return res.status(404).json({ success: false, message: "Job not found" });
@@ -660,6 +661,19 @@ const submitJobApplication = async (req, res) => {
         
         // Delete the temporary file from disk
         fs.unlinkSync(resumeFile.path);
+        
+        // Get job details for the email
+        const job = await jobModel.findById(actualJobId);
+        
+        // Send confirmation email
+        if (job) {
+            const emailTemplate = getJobApplicationTemplate(application, job);
+            await sendEmail(
+                email,
+                `Application Received: ${job.title}`,
+                emailTemplate
+            );
+        }
         
         res.status(201).json({ 
             success: true, 

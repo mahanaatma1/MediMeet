@@ -360,4 +360,108 @@ END:VCALENDAR`;
       </div>
     </div>
   `;
+};
+
+/**
+ * Generates a job application confirmation email template
+ * @param {Object} application - The job application details
+ * @param {Object} job - The job details
+ * @returns {string} HTML email template
+ */
+export const getJobApplicationTemplate = (application, job) => {
+  const { fullName } = application;
+  const { title, department } = job;
+  
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="color: #4f46e5;">MediMeet Job Application Confirmation</h2>
+      </div>
+      <p>Hello ${fullName},</p>
+      <p>Thank you for applying for the <strong>${title}</strong> position in our <strong>${department}</strong> department at MediMeet.</p>
+      
+      <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <p>We have received your application and it is currently under review by our hiring team.</p>
+        <p>You will be notified via email when there is any update regarding your application status.</p>
+      </div>
+      
+      <p>What happens next?</p>
+      <ul style="line-height: 1.6;">
+        <li>Our hiring team will review all applications</li>
+        <li>Shortlisted candidates will be contacted for initial screening</li>
+        <li>Selected candidates will be invited for interviews</li>
+        <li>Final hiring decisions will be communicated</li>
+      </ul>
+      
+      <p>If you have any questions about your application or the hiring process, please don't hesitate to contact our HR department at <a href="mailto:careers@medimeet.com" style="color: #4f46e5;">careers@medimeet.com</a>.</p>
+      <p>Thank you for your interest in joining MediMeet!</p>
+      <p>Best regards,<br>The MediMeet Hiring Team</p>
+      <div style="text-align: center; margin-top: 30px; color: #999; font-size: 12px; border-top: 1px solid #eee; padding-top: 15px;">
+        <p>© ${new Date().getFullYear()} MediMeet. All rights reserved.</p>
+      </div>
+    </div>
+  `;
+};
+
+/**
+ * Generates a job application status update email template
+ * @param {Object} application - The job application details
+ * @param {Object} job - The job details
+ * @param {String} status - The new application status
+ * @returns {string} HTML email template
+ */
+export const getApplicationStatusUpdateTemplate = (application, job, status) => {
+  const { fullName } = application;
+  const { title, department } = job;
+  
+  // Different messages based on application status
+  let statusMessage = '';
+  let statusColor = '';
+  let nextSteps = '';
+  
+  switch(status) {
+    case 'reviewed':
+      statusMessage = 'Your application has been reviewed by our hiring team.';
+      statusColor = '#2196f3'; // Blue
+      nextSteps = 'Your profile is being evaluated. We will contact you if we decide to proceed with your application.';
+      break;
+    case 'shortlisted':
+      statusMessage = 'Congratulations! Your application has been shortlisted for the next stage.';
+      statusColor = '#4caf50'; // Green
+      nextSteps = 'A member of our HR team will contact you soon to schedule an interview. Please ensure your contact information is up to date.';
+      break;
+    case 'rejected':
+      statusMessage = 'After careful consideration, we have decided not to proceed with your application at this time.';
+      statusColor = '#f44336'; // Red
+      nextSteps = 'We appreciate your interest in MediMeet and encourage you to apply for other suitable positions in the future.';
+      break;
+    default:
+      statusMessage = 'There has been an update to your job application.';
+      statusColor = '#ff9800'; // Orange
+      nextSteps = 'Please check your application status in your profile.';
+  }
+  
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="color: #4f46e5;">Application Status Update</h2>
+      </div>
+      <p>Hello ${fullName},</p>
+      <p>We are writing to inform you about an update to your application for the <strong>${title}</strong> position in our <strong>${department}</strong> department at MediMeet.</p>
+      
+      <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid ${statusColor}; margin: 20px 0; border-radius: 3px;">
+        <p style="margin: 0; color: #333;"><strong>Status Update:</strong> ${statusMessage}</p>
+      </div>
+      
+      <p><strong>Next Steps:</strong></p>
+      <p>${nextSteps}</p>
+      
+      <p>If you have any questions, please contact our HR department at <a href="mailto:careers@medimeet.com" style="color: #4f46e5;">careers@medimeet.com</a>.</p>
+      <p>Thank you for your interest in MediMeet!</p>
+      <p>Best regards,<br>The MediMeet Hiring Team</p>
+      <div style="text-align: center; margin-top: 30px; color: #999; font-size: 12px; border-top: 1px solid #eee; padding-top: 15px;">
+        <p>© ${new Date().getFullYear()} MediMeet. All rights reserved.</p>
+      </div>
+    </div>
+  `;
 }; 

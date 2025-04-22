@@ -5,6 +5,7 @@ import { AppContext } from '../../context/AppContext';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import VideoMeeting from '../../components/VideoMeeting';
+import AppointmentTimer from '../../components/AppointmentTimer';
 
 const DoctorMeeting = () => {
   const { appointmentId } = useParams();
@@ -196,13 +197,18 @@ const DoctorMeeting = () => {
   return (
     <div className="w-full max-w-6xl m-5">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Video Consultation</h1>
-        <p className="text-gray-600">
-          Appointment with {appointment?.userData?.name}
-        </p>
-        <p className="text-gray-600">
-          Date: {appointment?.slotDate?.split('_').join('/')} | Time: {appointment?.slotTime}
-        </p>
+        <div className="flex flex-wrap justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">Video Consultation</h1>
+            <p className="text-gray-600">
+              Appointment with {appointment?.userData?.name}
+            </p>
+            <p className="text-gray-600">
+              Date: {appointment?.slotDate?.split('_').join('/')} | Time: {appointment?.slotTime}
+            </p>
+          </div>
+          <AppointmentTimer startTime={appointment?.meetingStartTime} />
+        </div>
       </div>
 
       <VideoMeeting

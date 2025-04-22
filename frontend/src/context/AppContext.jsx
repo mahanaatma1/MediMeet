@@ -65,6 +65,13 @@ export const AppProvider = ({ children }) => {
         }
     }, [token])
 
+    // Function to format the date eg. ( 20_01_2000 => 20 Jan 2000 )
+    const slotDateFormat = (slotDate) => {
+        const dateArray = slotDate.split('_')
+        // Subtract 1 from month index since months array is 0-indexed but stored month is now 1-indexed
+        return dateArray[0] + " " + months[Number(dateArray[1]) - 1] + " " + dateArray[2]
+    }
+
     const value = {
         doctors, getDoctosData,
         currencySymbol,

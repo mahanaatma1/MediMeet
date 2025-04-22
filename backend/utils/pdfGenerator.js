@@ -68,16 +68,6 @@ export const generatePDF = async (prescription) => {
             // Set default font
             doc.font('Helvetica');
 
-            // Draw medical caduceus watermark in the background (faded)
-            doc.save();
-            doc.fillColor('#f0f0f0');
-            doc.fontSize(200);
-            doc.text('⚕', doc.page.width / 2 - 100, doc.page.height / 2 - 100, {
-                align: 'center',
-                opacity: 0.08
-            });
-            doc.restore();
-            
             // ===== HEADER SECTION =====
             // Left side: Doctor information (using absolute positioning)
             doc.fontSize(16).fillColor(primaryColor).font('Helvetica-Bold').text(`Dr. ${doctorData.name}`, 50, 60);
@@ -88,24 +78,24 @@ export const generatePDF = async (prescription) => {
             doc.fontSize(10).fillColor('#555').text('MediMeet Hospital, 4th Block, SR Medical Center,', 50, 125);
             doc.fontSize(10).fillColor('#555').text('Healthcare Avenue, Bengaluru - 560001', 50, 140);
             
-            // Doctor contact & appointment with better icons
+            // Doctor contact & appointment - improved alignment and layout
             doc.fontSize(10).fillColor('#555');
-            const phoneIcon = '📞 ';
-            const calendarIcon = '📅 ';
             
-            // Measure text width for better alignment
-            const phoneWidth = doc.widthOfString(phoneIcon);
-            const calendarWidth = doc.widthOfString(calendarIcon);
+            // Contact information with consistent alignment
+            const leftColumnX = 50;
+            const rightColumnX = doc.page.width / 2;
+            const contactY = 160;
+            const contactLabelWidth = 80;
             
-            // Contact info with icon
-            doc.text(phoneIcon, 50, 160);
-            doc.text(`${doctorData.phone || '080-XXXX-XXXX'}`, 50 + phoneWidth, 160);
+            // Phone - left column with aligned label and value
+            doc.text("Phone:", leftColumnX, contactY, { width: contactLabelWidth, continued: false });
+            doc.text('080-12345678', leftColumnX + contactLabelWidth, contactY, { width: 120 });
             
-            // Appointment info with icon
+            // Appointment - right column with aligned label and value
             if (appointmentData) {
                 const formattedDate = appointmentData.slotDate.replace(/_/g, '/');
-                doc.text(calendarIcon, 200, 160);
-                doc.text(`Next: ${formattedDate} ${appointmentData.slotTime}`, 200 + calendarWidth, 160);
+                doc.text("Appointment:", rightColumnX, contactY, { width: contactLabelWidth, continued: false });
+                doc.text(`${formattedDate} ${appointmentData.slotTime}`, rightColumnX + contactLabelWidth, contactY, { width: 150 });
             }
             
             // Right side: MediMeet Logo & info
@@ -127,36 +117,60 @@ export const generatePDF = async (prescription) => {
                .stroke();
             
             // ===== PATIENT INFORMATION =====
-            doc.fontSize(12).fillColor('#000').text(`${patientData.name} · ${patientData.age || '--'} Years · ${patientData.gender || 'Not Specified'}`, 50, 200);
+            doc.fontSize(12).fillColor('#000').text(`${patientData.name} · ${patientData.age || ''} Years · ${patientData.gender || 'Not Specified'}`, 50, 200);
             
             let currentY = 225; // Start tracking Y position
+            const contentMaxY = doc.page.height - 80; // Leave space at bottom
             
             // ===== VITALS & COMPLAINTS =====
             if (notes) {
-                doc.fontSize(11).fillColor('#555').text('Complaints', 50, currentY);
-                doc.fontSize(11).fillColor('#000').text(notes, 130, currentY, { width: 400 });
-                currentY += 30; // Adjust based on content length
-                
-                if (notes.length > 50) {
-                    currentY += 20; // Add more space for longer text
+                // Check if we need more space
+                if (currentY + 30 > contentMaxY) {
+                    doc.addPage(); // Add new page
+                    currentY = 50; // Reset Y position
                 }
+                
+                doc.fontSize(11).fillColor('#555').text('Complaints', 50, currentY);
+                
+                // Calculate the height needed for the notes text
+                const textHeight = doc.heightOfString(notes, { width: 400 });
+                doc.fontSize(11).fillColor('#000').text(notes, 130, currentY, { width: 400 });
+                
+                // Adjust currentY based on actual text height
+                currentY += Math.max(30, textHeight + 10);
             }
             
             // ===== DIAGNOSIS =====
             if (diagnosis) {
+                // Check if we need more space
+                if (currentY + 50 > contentMaxY) {
+                    doc.addPage(); // Add new page
+                    currentY = 50; // Reset Y position
+                }
+                
                 doc.rect(50, currentY, 85, 20).fill('#fff0f0');
                 doc.fontSize(11).fillColor(accentColor).text('Diagnosis', 55, currentY + 5);
+                
+                // Calculate the height needed for the diagnosis text
+                const diagnosisHeight = doc.heightOfString(diagnosis, { width: 400 });
                 doc.fontSize(11).fillColor('#000').text(diagnosis, 140, currentY + 5, { width: 400 });
-                currentY += 35;
+                
+                // Adjust currentY based on actual text height
+                currentY += Math.max(35, diagnosisHeight + 15);
             }
             
             // ===== MEDICATIONS =====
-            // Rx Symbol
-            doc.fontSize(36).fillColor('#000').text('Rx', 50, currentY);
-            currentY += 40;
-            
             if (medications.length > 0) {
                 medications.forEach((med, index) => {
+                    // Calculate height needed for this medication
+                    const medHeight = 60 + (med.instructions || med.timing ? 15 : 0);
+                    
+                    // Check if we need more space
+                    if (currentY + medHeight > contentMaxY) {
+                        doc.addPage(); // Add new page
+                        currentY = 50; // Reset Y position
+                    }
+                    
                     // Medication number and name
                     doc.fontSize(12).fillColor('#000').text(`${index + 1}. ${med.name}`, 60, currentY);
                     currentY += 20;
@@ -173,7 +187,8 @@ export const generatePDF = async (prescription) => {
                     
                     // Instructions
                     if (med.instructions || med.timing) {
-                        doc.fontSize(10).fillColor('#555').text(`Instructions: ${med.instructions || (med.timing ? 'Take ' + med.timing : '')}`, 80, currentY);
+                        const instructionsText = `Instructions: ${med.instructions || (med.timing ? 'Take ' + med.timing : '')}`;
+                        doc.fontSize(10).fillColor('#555').text(instructionsText, 80, currentY);
                         currentY += 15;
                     }
                     
@@ -186,6 +201,12 @@ export const generatePDF = async (prescription) => {
             
             // ===== INVESTIGATIONS (if any) =====
             if (followUpDate) {
+                // Check if we need more space
+                if (currentY + 60 > contentMaxY) {
+                    doc.addPage(); // Add new page
+                    currentY = 50; // Reset Y position
+                }
+                
                 currentY += 10; // Add extra space before this section
                 doc.fontSize(12).fillColor('#000').text('Investigations', 50, currentY);
                 currentY += 20;
@@ -202,45 +223,56 @@ export const generatePDF = async (prescription) => {
             }
             
             // ===== ADVICE =====
+            // Check if we need more space
+            if (currentY + 40 > contentMaxY) {
+                doc.addPage(); // Add new page
+                currentY = 50; // Reset Y position
+            }
+            
             currentY += 10; // Add extra space before this section
             doc.fontSize(12).fillColor('#000').text('Advice', 50, currentY);
             doc.fontSize(11).fillColor('#000').text('Review with reports', 140, currentY);
             
+            // Make sure we have enough space for signature
+            if (currentY + 100 > contentMaxY) {
+                doc.addPage(); // Add new page
+                currentY = 50; // Reset Y position
+            }
+            
             // ===== SIGNATURE =====
-            // Digital signature (can be replaced with actual signature image)
-            const signatureY = doc.page.height - 100;
-            doc.fontSize(11).fillColor('#000').text(doctorData.name, doc.page.width - 150, signatureY, { align: 'center' });
-            doc.fontSize(10).fillColor('#000').text(`${doctorData.degree || 'MBBS'}, ${doctorData.speciality || 'MD Medicine'}`, doc.page.width - 150, signatureY + 15, { align: 'center' });
-            doc.fontSize(9).fillColor('#555').text('MCI H00000', doc.page.width - 150, signatureY + 30, { align: 'center' });
+            // Better positioned signature that won't go out of bounds
+            const signatureY = doc.page.height - 130; // Increased space to avoid overlap
+            const signatureWidth = 180;
+            const signatureX = doc.page.width - signatureWidth - 50; // Keep from right edge
             
-            // Signature line
+            // Add a rectangle background for the signature area
+            doc.rect(signatureX, signatureY - 20, signatureWidth, 60).fill('#f8f8f8');
+            
+            // Doctor name and credentials - positioned FIRST before the line
+            const signatureCenterX = signatureX + (signatureWidth / 2);
+            doc.fontSize(11).fillColor('#000').text(doctorData.name, signatureCenterX, signatureY, { 
+                align: 'center',
+                width: signatureWidth - 20
+            });
+            doc.fontSize(10).fillColor('#444').text(`${doctorData.degree || 'MBBS'}, ${doctorData.speciality || 'Medicine'}`, signatureCenterX, signatureY + 15, { 
+                align: 'center',
+                width: signatureWidth - 20
+            });
+            doc.fontSize(9).fillColor('#555').text('Registration: MCI H00000', signatureCenterX, signatureY + 30, { 
+                align: 'center',
+                width: signatureWidth - 20
+            });
+            
+            // Signature line - positioned AFTER the text, above all the text
+            const lineY = signatureY - 10; // Position the line above the name
+            const lineStartX = signatureX + 20;
+            const lineEndX = signatureX + signatureWidth - 20;
             doc.strokeColor('#000').lineWidth(1)
-               .moveTo(doc.page.width - 200, signatureY - 10)
-               .lineTo(doc.page.width - 100, signatureY - 10)
+               .moveTo(lineStartX, lineY)
+               .lineTo(lineEndX, lineY)
                .stroke();
-               
-            // ===== FOOTER =====
-            doc.strokeColor('#aaaaaa').lineWidth(1)
-               .moveTo(50, doc.page.height - 60)
-               .lineTo(doc.page.width - 50, doc.page.height - 60)
-               .dash(1, 2)
-               .stroke();
-               
-            doc.fontSize(9).fillColor('#666').text(
-                'Prescription generated with MediMeet',
-                doc.page.width / 2, doc.page.height - 50, {
-                    align: 'center'
-                }
-            );
             
-            doc.fontSize(9).fillColor('#666').text(
-                'Terms & Conditions · Privacy Policy',
-                doc.page.width / 2, doc.page.height - 35, {
-                    align: 'center'
-                }
-            );
-            
-            // Finalize PDF
+            // Finalize the PDF
             doc.end();
         } catch (error) {
             console.error('Error generating PDF:', error);

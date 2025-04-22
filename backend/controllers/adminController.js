@@ -7,6 +7,10 @@ import { v2 as cloudinary } from "cloudinary";
 import userModel from "../models/userModel.js";
 import Job from '../models/jobModel.js';
 import jobApplicationModel from '../models/jobApplicationModel.js';
+import { sendEmail } from '../utils/sendEmail.js';
+import { getApplicationStatusUpdateTemplate } from '../utils/emailTemplates.js';
+import reviewModel from '../models/reviewModel.js';
+import jobModel from '../models/jobModel.js';
 
 // API for admin login
 const loginAdmin = async (req, res) => {
@@ -444,7 +448,7 @@ const getApplicationById = async (req, res) => {
   }
 };
 
-// Update application status
+// Update job application status
 const updateApplicationStatus = async (req, res) => {
   try {
     const { applicationId } = req.params;
@@ -468,6 +472,19 @@ const updateApplicationStatus = async (req, res) => {
         success: false, 
         message: "Application not found" 
       });
+    }
+
+    // Get job details for the email
+    const job = await jobModel.findById(application.jobId);
+
+    // Send status update email to the applicant
+    if (job && application.email) {
+      const emailTemplate = getApplicationStatusUpdateTemplate(application, job, status);
+      await sendEmail(
+        application.email,
+        `Application Status Update: ${job.title}`,
+        emailTemplate
+      );
     }
 
     res.json({ 

@@ -27,7 +27,8 @@ const MyAppointments = () => {
     // Function to format the date eg. ( 20_01_2000 => 20 Jan 2000 )
     const slotDateFormat = (slotDate) => {
         const dateArray = slotDate.split('_')
-        return dateArray[0] + " " + months[Number(dateArray[1])] + " " + dateArray[2]
+        // Subtract 1 from month index since months array is 0-indexed but stored month is 1-indexed
+        return dateArray[0] + " " + months[Number(dateArray[1]) - 1] + " " + dateArray[2]
     }
 
     // Function to convert slot date and time to Date object
@@ -90,9 +91,9 @@ const MyAppointments = () => {
                 return new Date(); // Return current date as fallback
             }
             
-            // IMPORTANT: In our system, the month is already 0-indexed in the database
-            // so we don't need to subtract 1 from the month value
-            const appointmentDate = new Date(year, month, day, hours, minutes);
+            // IMPORTANT: In our system, the month is now 1-indexed in the database (after our fix)
+            // so we need to subtract 1 from the month value for JavaScript's Date object
+            const appointmentDate = new Date(year, month - 1, day, hours, minutes);
             
             // Check if date is valid
             if (isNaN(appointmentDate.getTime())) {
@@ -150,9 +151,9 @@ const MyAppointments = () => {
             }
             
             // Create appointment date object
-            // IMPORTANT: In our system, the month is already 0-indexed in the database
-            // so we don't need to subtract 1 from the month value
-            const appointmentTime = new Date(year, month, day, hours, minutes, 0, 0);
+            // IMPORTANT: In our system, the month is now 1-indexed in the database (after our fix)
+            // so we need to subtract 1 from the month value for JavaScript's Date object
+            const appointmentTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
             
             // Validate the appointment time to ensure it's a valid date
             if (isNaN(appointmentTime.getTime())) {
@@ -163,9 +164,9 @@ const MyAppointments = () => {
             // Use currentTime state variable for more reactive updates
             const now = currentTime;
             
-            // Create the latest join time (appointment time + 30 minutes)
+            // Create the latest join time (appointment time + 45 minutes)
             const latestJoinTime = new Date(appointmentTime);
-            latestJoinTime.setMinutes(latestJoinTime.getMinutes() + 30);
+            latestJoinTime.setMinutes(latestJoinTime.getMinutes() + 45);
             
             // Compare timestamps for precise comparison
             const appointmentTimestamp = appointmentTime.getTime();
@@ -236,9 +237,9 @@ const MyAppointments = () => {
             }
             
             // Create appointment date object
-            // IMPORTANT: In our system, the month is already 0-indexed in the database
-            // so we don't need to subtract 1 from the month value
-            const appointmentTime = new Date(year, month, day, hours, minutes, 0, 0);
+            // IMPORTANT: In our system, the month is now 1-indexed in the database (after our fix)
+            // so we need to subtract 1 from the month value for JavaScript's Date object
+            const appointmentTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
             
             // Use currentTime state variable for more reactive updates
             const now = currentTime;
@@ -249,9 +250,9 @@ const MyAppointments = () => {
                 return "Soon"; // Return a user-friendly message instead of showing NaN
             }
             
-            // Create the latest join time (appointment time + 30 minutes)
+            // Create the latest join time (appointment time + 45 minutes)
             const latestJoinTime = new Date(appointmentTime);
-            latestJoinTime.setMinutes(latestJoinTime.getMinutes() + 30);
+            latestJoinTime.setMinutes(latestJoinTime.getMinutes() + 45);
             
             // Get timestamps for precise comparison
             const appointmentTimestamp = appointmentTime.getTime();
@@ -297,12 +298,12 @@ const MyAppointments = () => {
                 appointmentTime.getDate() === now.getDate();
             
             // For same-day appointments, use the more precise timestamp comparison
-            // Check if we're within the appointment window (from start time to 30 minutes after)
+            // Check if we're within the appointment window (from start time to 45 minutes after)
             if (isToday && nowTimestamp >= appointmentTimestamp && nowTimestamp <= latestTimestamp) {
                 return "Join now";
             }
             
-            // Check if appointment time has passed (more than 30 minutes after start time)
+            // Check if appointment time has passed (more than 45 minutes after start time)
             if (isToday && nowTimestamp > latestTimestamp) {
                 return "Appointment time passed";
             }
